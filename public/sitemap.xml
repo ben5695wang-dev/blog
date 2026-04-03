@@ -3,9 +3,39 @@
   xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
     <loc>//localhost:1313/</loc>
+    <lastmod>2026-04-03T21:28:02+08:00</lastmod>
+  </url><url>
+    <loc>//localhost:1313/post/202604003-hugofirst/</loc>
+    <lastmod>2026-04-03T21:28:02+08:00</lastmod>
   </url><url>
     <loc>//localhost:1313/categories/</loc>
+    <lastmod>2026-04-03T21:28:02+08:00</lastmod>
+  </url><url>
+    <loc>//localhost:1313/tags/github-pages/</loc>
+    <lastmod>2026-04-03T21:28:02+08:00</lastmod>
+  </url><url>
+    <loc>//localhost:1313/categories/hugo/</loc>
+    <lastmod>2026-04-03T21:28:02+08:00</lastmod>
+  </url><url>
+    <loc>//localhost:1313/tags/hugo/</loc>
+    <lastmod>2026-04-03T21:28:02+08:00</lastmod>
+  </url><url>
+    <loc>//localhost:1313/tags/markdown/</loc>
+    <lastmod>2026-04-03T21:28:02+08:00</lastmod>
+  </url><url>
+    <loc>//localhost:1313/post/</loc>
+    <lastmod>2026-04-03T21:28:02+08:00</lastmod>
   </url><url>
     <loc>//localhost:1313/tags/</loc>
+    <lastmod>2026-04-03T21:28:02+08:00</lastmod>
+  </url><url>
+    <loc>//localhost:1313/categories/%E5%8D%9A%E5%AE%A2/</loc>
+    <lastmod>2026-04-03T21:28:02+08:00</lastmod>
+  </url><url>
+    <loc>//localhost:1313/categories/%E6%8A%80%E6%9C%AF/</loc>
+    <lastmod>2026-04-03T21:28:02+08:00</lastmod>
+  </url><url>
+    <loc>//localhost:1313/tags/%E9%9D%99%E6%80%81%E7%AB%99%E7%82%B9/</loc>
+    <lastmod>2026-04-03T21:28:02+08:00</lastmod>
   </url>
 </urlset>

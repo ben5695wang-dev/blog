@@ -16,3 +16,4 @@ theme = 'hugo-theme-stack'
   ordered = true
 [params]
   showSidebar = true
+  mainSections = ["posts"]

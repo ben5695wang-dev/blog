@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+    <head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="Linux性能诊断和调优系列(四) &ndash; 硬盘篇\n目录 如何查看硬盘性能？\n市场上的硬盘有哪几种？需要关注什么？\n操作系统看到的硬盘有哪几种？需要关注什么？\n操作系统磁盘的边界在哪里？\n什么决定了我的IO执行顺序？\nIO调度器\n修改IO调度器策略\nIO优先级\n修改进程的IO优先级\n如何测试磁盘?性能？\nSSD和普通机械硬盘的区别\n总结和建议\n如何查看硬盘性能？ iostat 查看磁盘每秒读取、写入数据量和总共读取、写入的KB数。\niostat 的-x参数提供详细输出，包括工作负载的IOPS和吞吐量等。\npidstat 的-d参数查看每个进程的磁盘IO的统计信息。\nperf 工具来追踪块设备的系统级的每个事件，包括进程名、CPU、时间、事件名、磁盘设备号和IO的类型、大小等。\nbtrace通过系统调用来获取块设备数据，显示块设备队列及每个事件，有设备编号、CPU ID、活动时间、进程ID、事件类型和IO标识等。\n">
+<title>Linux性能诊断和调优系列(四) -- 硬盘篇</title>
+
+
+<link rel="canonical" href="//localhost:1313/posts/linux-performance-diagnosis-and-tuning-series-4-disk/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap">
+
+
+<link rel="stylesheet" href="/scss/style.min.389e156f5e9bb13df5a924cfa99dfb9c39f3e01e68d9e146cd65bdae963be145.css"><meta property='og:title' content="Linux性能诊断和调优系列(四) -- 硬盘篇">
+<meta property='og:description' content="Linux性能诊断和调优系列(四) &ndash; 硬盘篇\n目录 如何查看硬盘性能？\n市场上的硬盘有哪几种？需要关注什么？\n操作系统看到的硬盘有哪几种？需要关注什么？\n操作系统磁盘的边界在哪里？\n什么决定了我的IO执行顺序？\nIO调度器\n修改IO调度器策略\nIO优先级\n修改进程的IO优先级\n如何测试磁盘?性能？\nSSD和普通机械硬盘的区别\n总结和建议\n如何查看硬盘性能？ iostat 查看磁盘每秒读取、写入数据量和总共读取、写入的KB数。\niostat 的-x参数提供详细输出，包括工作负载的IOPS和吞吐量等。\npidstat 的-d参数查看每个进程的磁盘IO的统计信息。\nperf 工具来追踪块设备的系统级的每个事件，包括进程名、CPU、时间、事件名、磁盘设备号和IO的类型、大小等。\nbtrace通过系统调用来获取块设备数据，显示块设备队列及每个事件，有设备编号、CPU ID、活动时间、进程ID、事件类型和IO标识等。\n">
+<meta property='og:url' content='//localhost:1313/posts/linux-performance-diagnosis-and-tuning-series-4-disk/'>
+<meta property='og:site_name' content=''>
+<meta property='og:type' content='article'><meta property='article:section' content='Posts' /><meta property='article:tag' content='Linux' /><meta property='article:tag' content='Linux性能诊断和调优系列' /><meta property='article:tag' content='disk' /><meta property='article:published_time' content='2024-06-13T18:38:59&#43;08:00'/><meta property='article:modified_time' content='2024-06-13T18:38:59&#43;08:00'/>
+<meta name="twitter:title" content="Linux性能诊断和调优系列(四) -- 硬盘篇">
+<meta name="twitter:description" content="Linux性能诊断和调优系列(四) &ndash; 硬盘篇\n目录 如何查看硬盘性能？\n市场上的硬盘有哪几种？需要关注什么？\n操作系统看到的硬盘有哪几种？需要关注什么？\n操作系统磁盘的边界在哪里？\n什么决定了我的IO执行顺序？\nIO调度器\n修改IO调度器策略\nIO优先级\n修改进程的IO优先级\n如何测试磁盘?性能？\nSSD和普通机械硬盘的区别\n总结和建议\n如何查看硬盘性能？ iostat 查看磁盘每秒读取、写入数据量和总共读取、写入的KB数。\niostat 的-x参数提供详细输出，包括工作负载的IOPS和吞吐量等。\npidstat 的-d参数查看每个进程的磁盘IO的统计信息。\nperf 工具来追踪块设备的系统级的每个事件，包括进程名、CPU、时间、事件名、磁盘设备号和IO的类型、大小等。\nbtrace通过系统调用来获取块设备数据，显示块设备队列及每个事件，有设备编号、CPU ID、活动时间、进程ID、事件类型和IO标识等。\n">
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="Toggle Menu">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/"></a></h1>
+            <h2 class="site-description"></h2>
+        </div>
+    </header><ol class="menu" id="main-menu">
+        
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>Dark Mode</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            
+            
+            
+            <a href="/categories/%E6%8A%80%E6%9C%AF/" style="background-color: hsl(154, 60%, 84%); color: hsl(154, 60%, 15%);">
+                技术
+            </a>
+        
+            
+            
+            
+            <a href="/categories/linux/" style="background-color: hsl(237, 60%, 84%); color: hsl(237, 60%, 15%);">
+                Linux
+            </a>
+        
+            
+            
+            
+            <a href="/categories/linux%E6%80%A7%E8%83%BD%E8%AF%8A%E6%96%AD%E5%92%8C%E8%B0%83%E4%BC%98%E7%B3%BB%E5%88%97/" style="background-color: hsl(341, 60%, 84%); color: hsl(341, 60%, 15%);">
+                Linux性能诊断和调优系列
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/posts/linux-performance-diagnosis-and-tuning-series-4-disk/">Linux性能诊断和调优系列(四) -- 硬盘篇</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    
+    
+    
+    <footer class="article-meta">
+        
+            <div class="inline-meta">
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                    <time class="article-time--published" datetime='2024-06-13T18:38:59&#43;08:00'>Thursday, June 13, 2024</time>
+                
+
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                    <time class="article-time--reading">
+                        1 minute read
+                    </time>
+                
+            </div>
+        
+
+        
+
+        
+    </footer>
+    
+</div>
+
+</header>
+
+    
+
+    <section class="article-content">
+    
+    
+    <p>Linux性能诊断和调优系列(四) &ndash; 硬盘篇<br>
+<img class="gallery-image" data-flex-basis="327px" data-flex-grow="136" height="237" loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px" src="/posts/linux-performance-diagnosis-and-tuning-series-4-disk/20240611_disk_02-2.png" width="323"></p>
+<h1 id="目录">目录
+</h1><p>如何查看硬盘性能？<br>
+市场上的硬盘有哪几种？需要关注什么？<br>
+操作系统看到的硬盘有哪几种？需要关注什么？<br>
+操作系统磁盘的边界在哪里？<br>
+什么决定了我的IO执行顺序？<br>
+IO调度器<br>
+修改IO调度器策略<br>
+IO优先级<br>
+修改进程的IO优先级<br>
+如何测试磁盘?性能？<br>
+SSD和普通机械硬盘的区别<br>
+总结和建议</p>
+<h1 id="如何查看硬盘性能">如何查看硬盘性能？
+</h1><p>iostat 查看磁盘每秒读取、写入数据量和总共读取、写入的KB数。<br>
+<img class="gallery-image" data-flex-basis="841px" data-flex-grow="350" height="182" loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px" src="/posts/linux-performance-diagnosis-and-tuning-series-4-disk/20240611_disk_iostat.png" width="638"><br>
+iostat 的-x参数提供详细输出，包括工作负载的IOPS和吞吐量等。<br>
+<img class="gallery-image" data-flex-basis="1271px" data-flex-grow="529" height="188" loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px" src="/posts/linux-performance-diagnosis-and-tuning-series-4-disk/20240611_disk_iostat-x.png" srcset="/posts/linux-performance-diagnosis-and-tuning-series-4-disk/20240611_disk_iostat-x_hu_bfe6b249a8582b55.png 800w, /posts/linux-performance-diagnosis-and-tuning-series-4-disk/20240611_disk_iostat-x.png 996w" width="996"><br>
+pidstat 的-d参数查看每个进程的磁盘IO的统计信息。<br>
+<img class="gallery-image" data-flex-basis="715px" data-flex-grow="298" height="218" loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px" src="/posts/linux-performance-diagnosis-and-tuning-series-4-disk/20240611_disk_pidstat.png" width="650"><br>
+perf 工具来追踪块设备的系统级的每个事件，包括进程名、CPU、时间、事件名、磁盘设备号和IO的类型、大小等。<br>
+<img class="gallery-image" data-flex-basis="366px" data-flex-grow="152" height="592" loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px" src="/posts/linux-performance-diagnosis-and-tuning-series-4-disk/20240611_disk_perf.png" srcset="/posts/linux-performance-diagnosis-and-tuning-series-4-disk/20240611_disk_perf_hu_c75f4030e125c431.png 800w, /posts/linux-performance-diagnosis-and-tuning-series-4-disk/20240611_disk_perf.png 904w" width="904"><br>
+btrace通过系统调用来获取块设备数据，显示块设备队列及每个事件，有设备编号、CPU ID、活动时间、进程ID、事件类型和IO标识等。<br>
+<img class="gallery-image" data-flex-basis="242px" data-flex-grow="100" height="711" loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px" src="/posts/linux-performance-diagnosis-and-tuning-series-4-disk/20240611_disk_btrace.png" width="717"></p>
+<h1 id="市场上的硬盘有哪几种需要关注什么">市场上的硬盘有哪几种？需要关注什么？
+</h1><p>传统的机械硬盘：关注转速、数据传输率、容量、缓存、接口类型。<br>
+固态磁盘：关注闪存类型(SLC、MLC、eMLC、TLC、QLC、V-NAND)，寿命。<br>
+持久性内存：速度比闪存高好几个数量级，接近内存的速度，而且是非易失性的，以Optane为代表的新贵。关注兼容性、操作系统是否支持、质量。</p>
+<h1 id="操作系统看到的硬盘有哪几种需要关注什么">操作系统看到的硬盘有哪几种？需要关注什么？
+</h1><p>普通磁盘：例如服务器内置磁盘，关注点和市场上的硬盘一样。<br>
+RAID：关注RAID类型、冗余度、重建时长。<br>
+存储阵列：一般通过FC卡连接到外部存储阵列，关注IOPS和吞吐量、多路径的冗余、可观测性。<br>
+网络存储：通过网络连接到操作系统，支持NFS、SMB/CIFS、iSCSI，关注IOPS和吞吐量、可观测性。</p>
+<h1 id="操作系统磁盘的边界在哪里">操作系统磁盘的边界在哪里？
+</h1><p>对于Linux磁盘的性能诊断和调优，其边界是操作系统管理的软硬件。<br>
+常见的是磁盘调度算法、IO队列深度、IO优先级、服务器存储卡驱动及参数，和服务器内置磁盘参数。<br>
+而外部存储和网络存储，其性能、参数、可观察性等，都需要由外部存储和网络存储才能提供，而且只能由其调整的，操作系统一般是无能为力的。</p>
+<h1 id="什么决定了我的io执行顺序">什么决定了我的IO执行顺序？
+</h1><p>由IO调度器和IO优先级决定了哪个IO会先执行。</p>
+<h1 id="io调度器">IO调度器
+</h1><p>RHEL8支持多个队列的I/O调度器，从而允许将I/O操作映射到不同队列，从而并行执行。<br>
+mq-deadline: 使用2个队列(一写、一读)并根据过期时间排序，从而确保I/O操作在其过期前执行。如果快接近过期时间，则在第3个队列中执行。在RHEL8这个是默认的。<br>
+kyber: 根据性能调整读写队列长度，以满足写延迟。使用2个队列来支持更快速的设备，1个是同步读，1个是异步写。<br>
+bfq: CFQ的增强版，为每个执行磁盘IO的进程创建一个队列，提供了一致的交互响应。<br>
+non: 不排队。支持像NVMe的快速随机I/O设备，但不重新排序I/O请求。这是noop的替代。</p>
+<h1 id="修改io调度器策略">修改IO调度器策略
+</h1><p>cat /sys/block/vda/queue/scheduler 查看当前IO调度器策略<br>
+<img class="gallery-image" data-flex-basis="1805px" data-flex-grow="752" height="42" loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px" src="/posts/linux-performance-diagnosis-and-tuning-series-4-disk/20240611_disk_cat_ioscheduler.png" width="316"><br>
+echo kyber &gt; /sys/block/vda/queue/scheduler 修改当前IO调度器策略<br>
+<img class="gallery-image" data-flex-basis="2513px" data-flex-grow="1047" height="36" loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px" src="/posts/linux-performance-diagnosis-and-tuning-series-4-disk/20240611_disk_change_ioscheduler.png" width="377"></p>
+<h1 id="io优先级">IO优先级
+</h1><p>有四类优先级：<br>
+none：默认，无。<br>
+ilde：空闲调度，策略是在系统没有其他进程需要进行磁盘IO时，才能进行磁盘。<br>
+Best effort：最高效策略，默认的策略；该策略可以指定优先级参数，范围是0~7，数值越小，优先级越高。同等优先级的进程采用轮询策略。<br>
+Real time：实时调度策略，无论操作系统中是否有其他进程使用磁盘，该进程立刻使用磁盘，此策略可能会使得其他进程处于等待状态！</p>
+<h1 id="修改进程的io优先级">修改进程的IO优先级
+</h1><p>ionice -c 2 -n 3 -p 19515  修改进程的IO优先级<br>
+<img class="gallery-image" data-flex-basis="1354px" data-flex-grow="564" height="42" loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px" src="/posts/linux-performance-diagnosis-and-tuning-series-4-disk/20240611_disk_change_ionice.png" width="237"><br>
+ionice -p 19515 查看进程的IO优先级<br>
+<img class="gallery-image" data-flex-basis="902px" data-flex-grow="376" height="50" loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px" src="/posts/linux-performance-diagnosis-and-tuning-series-4-disk/20240611_disk_cat_ionice.png" width="188"></p>
+<h1 id="如何测试磁盘性能">如何测试磁盘性能？
+</h1><p>除了传统的dd，还可以使用以下工具：<br>
+ioping 用于测试磁盘，和网络的ping差不多。<br>
+<img class="gallery-image" data-flex-basis="784px" data-flex-grow="326" height="186" loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px" src="/posts/linux-performance-diagnosis-and-tuning-series-4-disk/20240611_disk_ioping.png" width="608"><br>
+haparm可以查看和修改多种磁盘参数，这个工具太过底层，在其手册中大多被标记为&quot;危险&quot;，因为可能会导致数据丢失！<br>
+<img class="gallery-image" data-flex-basis="679px" data-flex-grow="283" height="224" loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px" src="/posts/linux-performance-diagnosis-and-tuning-series-4-disk/20240611_disk_hdparm.png" width="634"></p>
+<h1 id="ssd和普通机械硬盘的区别">SSD和普通机械硬盘的区别
+</h1><p>SSD已经逐渐取代机械硬盘，对于机械硬盘的传统调优方法并不适用于SSD，例如SSD不需要预读和后写，所以建议SSD配置为直写。<br>
+同时，也不推荐在SSD硬盘上使用文件系统的日志，这会会导致不必要的两次写入，从而增加SSD的磨损和性能的缓慢。</p>
+<h1 id="总结和建议">总结和建议
+</h1><ol>
+<li>操作系统或服务器之外的RAID、存储阵列、NAS等，不是系统性能分析和调优的范围。</li>
+<li>使用IO调度器和IO优先级决定了IO的执行顺序。</li>
+<li>使用iostat, pidstat等命令查看磁盘性能。</li>
+<li>使用perf, btrace等命令分析磁盘详细事件。</li>
+<li>使用ioping等命令测试磁盘。</li>
+<li>SSD已经逐渐取代机械硬盘。</li>
+</ol>
+<h1 id="更多内容请参见本系列其他文章">更多内容请参见本系列其他文章
+</h1><p>&laquo;Linux性能诊断和调优系列(一)&ndash;30秒3条命令诊断Linux性能瓶颈&raquo;<br>
+&laquo;Linux性能诊断和调优系列(二)&ndash;CPU篇&raquo;<br>
+&laquo;Linux性能诊断和调优系列(三)&ndash;内存篇&raquo;<br>
+&laquo;Linux性能诊断和调优系列(四)&ndash;硬盘篇&raquo;<br>
+&laquo;Linux性能诊断和调优系列(五)&ndash;文件系统篇&raquo;<br>
+&laquo;Linux性能诊断和调优系列(六)&ndash;网络篇&raquo;<br>
+&laquo;Linux性能诊断和调优系列(七)&ndash;虚拟机及容器篇&raquo;<br>
+&laquo;Linux性能诊断和调优系列(八)&ndash;虚拟环境性能调优案例&raquo;<br>
+&laquo;Linux性能诊断和调优系列(九)&ndash;计算密集型应用性能调优案例&raquo;<br>
+&laquo;Linux性能诊断和调优系列(十)&ndash;存储密集型应用性能调优案例&raquo;<br>
+&laquo;Linux性能诊断和调优系列(十一)&ndash;大内存型应用性能调优案例&raquo;</p>
+<p>本文内容为原创，如需转载，请务必注明原文出处。<br>
+更多相关内容，欢迎访问我的个人网站：hongxu.wang。<br>
+我们还提供免费的技术支持，欢迎通过公众号与我们联系。</p>
+
+</section>
+
+
+    <footer class="article-meta article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/linux/">Linux</a>
+        
+            <a href="/tags/linux%E6%80%A7%E8%83%BD%E8%AF%8A%E6%96%AD%E5%92%8C%E8%B0%83%E4%BC%98%E7%B3%BB%E5%88%97/">Linux性能诊断和调优系列</a>
+        
+            <a href="/tags/disk/">Disk</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+<aside>
+    <h2 class="section-title">Related content</h2>
+    <div class="subsection-list">
+        <div class="article-list--tile">
+            
+                
+<article class="">
+    <a href="/posts/linux-performance-diagnosis-and-tuning-series-3-memory/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux性能诊断和调优系列(三) -- 内存篇</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/linux-performance-diagnosis-and-tuning-series-2-cpu/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux性能诊断和调优系列(二) -- CPU篇</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/linux-performance-diagnosis-and-tuning-series-1-30-second-3-commands-to-diagnose-linux-performance-bottleneck/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux性能诊断和调优系列(一) -- 30秒3条命令诊断Linux性能瓶颈</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/setup-local-yum-repo-without-internet-in-lan/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">搭建不需要外网的局域网内yum源</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/setup-local-yum-repo-without-internet-in-lan-log/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">搭建不需要外网的局域网内yum源_log</h2>
+        </div>
+    </a>
+</article>
+            
+        </div>
+    </div>
+</aside>
+
+     
+    
+        
+        <div class="disqus-container">
+    
+</div>
+
+<style>
+    .disqus-container {
+        background-color: var(--card-background);
+        border-radius: var(--card-border-radius);
+        box-shadow: var(--shadow-l1);
+        padding: var(--card-padding);
+    }
+</style>
+
+<script>
+    window.addEventListener('onColorSchemeChange', (e) => {
+        if (typeof DISQUS == 'object') {
+            DISQUS.reset({
+                reload: true
+            });
+        }
+    })
+</script>
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+        2026 
+    </section>
+    
+    <section class="powerby">
+        Built with <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> <br />
+        Theme <b><a href="https://github.com/CaiJimmy/hugo-theme-stack" target="_blank" rel="noopener" data-version="4.0.0">Stack</a></b> designed by <a href="https://jimmycai.com" target="_blank" rel="noopener">Jimmy</a>
+    </section>
+</footer>
+
+
+    
+
+
+
+<script type="module">
+    import gallery from '\/ts\/gallery.js';
+
+    const articleContent = document.querySelector('.article-content');
+    const shouldLoad = articleContent && (articleContent.querySelectorAll('figure').length > 0 || articleContent.querySelectorAll('img.gallery-image').length > 0);
+    
+    if (shouldLoad) {
+        gallery(articleContent);
+
+        const PhotoSwipeLightbox = (await import("https:\/\/cdn.jsdelivr.net\/npm\/photoswipe@5.4.4\/dist\/photoswipe-lightbox.esm.min.js")).default;
+        const styleHref = "https:\/\/cdn.jsdelivr.net\/npm\/photoswipe@5.4.4\/dist\/photoswipe.css";
+
+        const styleTag = document.createElement('link');
+        styleTag.rel = 'stylesheet';
+        styleTag.href = styleHref;
+        document.head.appendChild(styleTag);
+
+        const lightbox = new PhotoSwipeLightbox({
+            gallerySelector: '.article-content',
+            childSelector: 'figure a.image-link',
+            pswpModule: () => import("https:\/\/cdn.jsdelivr.net\/npm\/photoswipe@5.4.4\/dist\/photoswipe.esm.min.js")
+        });
+        lightbox.init();
+    }
+</script>
+    
+
+            </main>
+        </div>
+        
+<script type="text/javascript" src="/ts/main.3ee067593935e3e391e923f2aa079d2b8173732410e5e89b88be5ea1545eeff7.js" defer></script>
+
+
+    </body>
+</html>

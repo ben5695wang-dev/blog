@@ -5,11 +5,11 @@
         <description>Recent content in Posts on </description>
         <generator>Hugo -- gohugo.io</generator>
         <language>en</language>
-        <lastBuildDate>Fri, 03 Apr 2026 21:28:02 +0800</lastBuildDate><atom:link href="//localhost:1313/post/index.xml" rel="self" type="application/rss+xml" /><item>
-            <title>202604003 Hugofirst</title>
-            <link>//localhost:1313/post/202604003-hugofirst/</link>
-            <pubDate>Fri, 03 Apr 2026 21:28:02 +0800</pubDate>
-            <guid>//localhost:1313/post/202604003-hugofirst/</guid>
+        <lastBuildDate>Wed, 15 Apr 2026 20:07:04 +0800</lastBuildDate><atom:link href="//localhost:1313/post/index.xml" rel="self" type="application/rss+xml" /><item>
+            <title>Linux Diagnosis and Troubleshooting Series 2 Fix Kernel Service</title>
+            <link>//localhost:1313/post/linux-diagnosis-and-troubleshooting-series-2-fix-kernel-service/</link>
+            <pubDate>Wed, 15 Apr 2026 20:07:04 +0800</pubDate>
+            <guid>//localhost:1313/post/linux-diagnosis-and-troubleshooting-series-2-fix-kernel-service/</guid>
             <description></description>
         </item></channel>
 </rss>

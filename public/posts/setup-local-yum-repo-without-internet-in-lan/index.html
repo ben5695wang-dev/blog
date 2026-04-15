@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+    <head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="搭建不需要外网的局域网内yum源 将要安装的包，通过能上网的机器下载下来，然后copy到离线的Linux上，创建不需要外网的局域网内yum源，就可以进行局域网内安装了。\n1. yum安装过程 yum安装的本质是把后缀名.rpm的包下载到本地，然后按次序安装，但是每次yum install xxx时，都会自动安装并且在安装完成直接后把rpm包自动删除。\n当我们下载比较大或者网络不好的时候，每次都需要重新下载就会非常慢；或者需要重复安装多台机器或重复安装多次的时候，在这种情况下就可以考虑搭建不需要外网的局域网内yum源仓库。\n搭建不需要外网的局域网内yum源仓库的几个步骤：\n将rpm包下载到本地。 生成repodata信息。 安装配置http服务。 创建对应yum源文件。 使用yum repoinfo检查确认。 对本地yum源仓库进行更新。 2. 搭建不需要外网的局域网内yum源仓库 2.1 将rpm包下载到本地 创建一个本地文件夹用于存放要下载的安装包，然后用yum命令的downloadonly选项来下载要安装的包及其依赖包。在能上网的Linux上执行以下命令：\n[root@harbor1 /]# cd / [root@harbor1 /]# mkdir whxlocalyum [root@harbor1 /]# yum install --downloadonly --downloaddir=/whxlocalyum httpd 2.2 生成repodata信息 将以上内容copy到离线机器中的某个文件夹中，这里用/whxlocalyum文件夹。然后使用createrepo命令生成repodata信息。\n[root@harbor1 whxlocalyum]# yum install createrepo -y [root@harbor1 whxlocalyum]# tree /whxlocalyum/ [root@harbor1 whxlocalyum]# createrepo /whxlocalyum/ 2.3 安装配置http服务 这里使用了docker来运行http服务\n这里是将宿主机的81端口映射到了docker容器httpd的80端口，将宿主机的/whxlocalyum文件夹映射到了docker容器httpd的/usr/local/apache2/htdocs/whxlocalnetworkyum文件夹\n[root@harbor1 /]# docker pull httpd [root@harbor1 /]# docker run -d -p 81:80 -v /whxlocalyum:/usr/local/apache2/htdocs/whxlocalnetworkyum httpd:latest e25750f8aca0362db4a9aa4521518facace669128ab69f9c37a41352c7dd19e1 [root@harbor1 /]# docker exec -it e25750f8aca0 bash root@e25750f8aca0:/usr/local/apache2# cd htdocs/ root@e25750f8aca0:/usr/local/apache2/htdocs# ls -al 如果docker中没有vi，可以先在docker里面安装vi:\n需要先用root用户进入 docker\n">
+<title>搭建不需要外网的局域网内yum源</title>
+
+
+<link rel="canonical" href="//localhost:1313/posts/setup-local-yum-repo-without-internet-in-lan/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap">
+
+
+<link rel="stylesheet" href="/scss/style.min.389e156f5e9bb13df5a924cfa99dfb9c39f3e01e68d9e146cd65bdae963be145.css"><meta property='og:title' content="搭建不需要外网的局域网内yum源">
+<meta property='og:description' content="搭建不需要外网的局域网内yum源 将要安装的包，通过能上网的机器下载下来，然后copy到离线的Linux上，创建不需要外网的局域网内yum源，就可以进行局域网内安装了。\n1. yum安装过程 yum安装的本质是把后缀名.rpm的包下载到本地，然后按次序安装，但是每次yum install xxx时，都会自动安装并且在安装完成直接后把rpm包自动删除。\n当我们下载比较大或者网络不好的时候，每次都需要重新下载就会非常慢；或者需要重复安装多台机器或重复安装多次的时候，在这种情况下就可以考虑搭建不需要外网的局域网内yum源仓库。\n搭建不需要外网的局域网内yum源仓库的几个步骤：\n将rpm包下载到本地。 生成repodata信息。 安装配置http服务。 创建对应yum源文件。 使用yum repoinfo检查确认。 对本地yum源仓库进行更新。 2. 搭建不需要外网的局域网内yum源仓库 2.1 将rpm包下载到本地 创建一个本地文件夹用于存放要下载的安装包，然后用yum命令的downloadonly选项来下载要安装的包及其依赖包。在能上网的Linux上执行以下命令：\n[root@harbor1 /]# cd / [root@harbor1 /]# mkdir whxlocalyum [root@harbor1 /]# yum install --downloadonly --downloaddir=/whxlocalyum httpd 2.2 生成repodata信息 将以上内容copy到离线机器中的某个文件夹中，这里用/whxlocalyum文件夹。然后使用createrepo命令生成repodata信息。\n[root@harbor1 whxlocalyum]# yum install createrepo -y [root@harbor1 whxlocalyum]# tree /whxlocalyum/ [root@harbor1 whxlocalyum]# createrepo /whxlocalyum/ 2.3 安装配置http服务 这里使用了docker来运行http服务\n这里是将宿主机的81端口映射到了docker容器httpd的80端口，将宿主机的/whxlocalyum文件夹映射到了docker容器httpd的/usr/local/apache2/htdocs/whxlocalnetworkyum文件夹\n[root@harbor1 /]# docker pull httpd [root@harbor1 /]# docker run -d -p 81:80 -v /whxlocalyum:/usr/local/apache2/htdocs/whxlocalnetworkyum httpd:latest e25750f8aca0362db4a9aa4521518facace669128ab69f9c37a41352c7dd19e1 [root@harbor1 /]# docker exec -it e25750f8aca0 bash root@e25750f8aca0:/usr/local/apache2# cd htdocs/ root@e25750f8aca0:/usr/local/apache2/htdocs# ls -al 如果docker中没有vi，可以先在docker里面安装vi:\n需要先用root用户进入 docker\n">
+<meta property='og:url' content='//localhost:1313/posts/setup-local-yum-repo-without-internet-in-lan/'>
+<meta property='og:site_name' content=''>
+<meta property='og:type' content='article'><meta property='article:section' content='Posts' /><meta property='article:tag' content='Linux' /><meta property='article:tag' content='yum' /><meta property='article:published_time' content='2023-04-02T19:31:55&#43;08:00'/><meta property='article:modified_time' content='2023-04-02T19:31:55&#43;08:00'/>
+<meta name="twitter:title" content="搭建不需要外网的局域网内yum源">
+<meta name="twitter:description" content="搭建不需要外网的局域网内yum源 将要安装的包，通过能上网的机器下载下来，然后copy到离线的Linux上，创建不需要外网的局域网内yum源，就可以进行局域网内安装了。\n1. yum安装过程 yum安装的本质是把后缀名.rpm的包下载到本地，然后按次序安装，但是每次yum install xxx时，都会自动安装并且在安装完成直接后把rpm包自动删除。\n当我们下载比较大或者网络不好的时候，每次都需要重新下载就会非常慢；或者需要重复安装多台机器或重复安装多次的时候，在这种情况下就可以考虑搭建不需要外网的局域网内yum源仓库。\n搭建不需要外网的局域网内yum源仓库的几个步骤：\n将rpm包下载到本地。 生成repodata信息。 安装配置http服务。 创建对应yum源文件。 使用yum repoinfo检查确认。 对本地yum源仓库进行更新。 2. 搭建不需要外网的局域网内yum源仓库 2.1 将rpm包下载到本地 创建一个本地文件夹用于存放要下载的安装包，然后用yum命令的downloadonly选项来下载要安装的包及其依赖包。在能上网的Linux上执行以下命令：\n[root@harbor1 /]# cd / [root@harbor1 /]# mkdir whxlocalyum [root@harbor1 /]# yum install --downloadonly --downloaddir=/whxlocalyum httpd 2.2 生成repodata信息 将以上内容copy到离线机器中的某个文件夹中，这里用/whxlocalyum文件夹。然后使用createrepo命令生成repodata信息。\n[root@harbor1 whxlocalyum]# yum install createrepo -y [root@harbor1 whxlocalyum]# tree /whxlocalyum/ [root@harbor1 whxlocalyum]# createrepo /whxlocalyum/ 2.3 安装配置http服务 这里使用了docker来运行http服务\n这里是将宿主机的81端口映射到了docker容器httpd的80端口，将宿主机的/whxlocalyum文件夹映射到了docker容器httpd的/usr/local/apache2/htdocs/whxlocalnetworkyum文件夹\n[root@harbor1 /]# docker pull httpd [root@harbor1 /]# docker run -d -p 81:80 -v /whxlocalyum:/usr/local/apache2/htdocs/whxlocalnetworkyum httpd:latest e25750f8aca0362db4a9aa4521518facace669128ab69f9c37a41352c7dd19e1 [root@harbor1 /]# docker exec -it e25750f8aca0 bash root@e25750f8aca0:/usr/local/apache2# cd htdocs/ root@e25750f8aca0:/usr/local/apache2/htdocs# ls -al 如果docker中没有vi，可以先在docker里面安装vi:\n需要先用root用户进入 docker\n">
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="Toggle Menu">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/"></a></h1>
+            <h2 class="site-description"></h2>
+        </div>
+    </header><ol class="menu" id="main-menu">
+        
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>Dark Mode</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            
+            
+            
+            <a href="/categories/%E6%8A%80%E6%9C%AF/" style="background-color: hsl(154, 60%, 84%); color: hsl(154, 60%, 15%);">
+                技术
+            </a>
+        
+            
+            
+            
+            <a href="/categories/linux/" style="background-color: hsl(237, 60%, 84%); color: hsl(237, 60%, 15%);">
+                Linux
+            </a>
+        
+            
+            
+            
+            <a href="/categories/yum/" style="background-color: hsl(234, 60%, 84%); color: hsl(234, 60%, 15%);">
+                Yum
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/posts/setup-local-yum-repo-without-internet-in-lan/">搭建不需要外网的局域网内yum源</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    
+    
+    
+    <footer class="article-meta">
+        
+            <div class="inline-meta">
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                    <time class="article-time--published" datetime='2023-04-02T19:31:55&#43;08:00'>Sunday, April 2, 2023</time>
+                
+
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                    <time class="article-time--reading">
+                        2 minutes read
+                    </time>
+                
+            </div>
+        
+
+        
+
+        
+    </footer>
+    
+</div>
+
+</header>
+
+    
+
+    <section class="article-content">
+    
+    
+    <h1 id="搭建不需要外网的局域网内yum源">搭建不需要外网的局域网内yum源
+</h1><p>将要安装的包，通过能上网的机器下载下来，然后copy到离线的Linux上，创建不需要外网的局域网内yum源，就可以进行局域网内安装了。</p>
+<h2 id="1-yum安装过程">1. yum安装过程
+</h2><p>yum安装的本质是把后缀名.rpm的包下载到本地，然后按次序安装，但是每次yum install xxx时，都会自动安装并且在安装完成直接后把rpm包自动删除。<br>
+当我们下载比较大或者网络不好的时候，每次都需要重新下载就会非常慢；或者需要重复安装多台机器或重复安装多次的时候，在这种情况下就可以考虑搭建不需要外网的局域网内yum源仓库。</p>
+<p>搭建不需要外网的局域网内yum源仓库的几个步骤：</p>
+<ol>
+<li>将rpm包下载到本地。</li>
+<li>生成repodata信息。</li>
+<li>安装配置http服务。</li>
+<li>创建对应yum源文件。</li>
+<li>使用yum repoinfo检查确认。</li>
+<li>对本地yum源仓库进行更新。</li>
+</ol>
+<h2 id="2-搭建不需要外网的局域网内yum源仓库">2. 搭建不需要外网的局域网内yum源仓库
+</h2><h3 id="21-将rpm包下载到本地">2.1 将rpm包下载到本地
+</h3><p>创建一个本地文件夹用于存放要下载的安装包，然后用yum命令的downloadonly选项来下载要安装的包及其依赖包。在能上网的Linux上执行以下命令：</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 /<span class="o">]</span><span class="c1"># cd /</span>
+</span></span><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 /<span class="o">]</span><span class="c1"># mkdir whxlocalyum</span>
+</span></span><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 /<span class="o">]</span><span class="c1"># yum install  --downloadonly --downloaddir=/whxlocalyum httpd</span>
+</span></span></code></pre></div><h3 id="22-生成repodata信息">2.2 生成repodata信息
+</h3><p>将以上内容copy到离线机器中的某个文件夹中，这里用/whxlocalyum文件夹。然后使用createrepo命令生成repodata信息。</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 whxlocalyum<span class="o">]</span><span class="c1"># yum install createrepo -y</span>
+</span></span><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 whxlocalyum<span class="o">]</span><span class="c1"># tree /whxlocalyum/</span>
+</span></span><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 whxlocalyum<span class="o">]</span><span class="c1"># createrepo /whxlocalyum/</span>
+</span></span></code></pre></div><h3 id="23-安装配置http服务">2.3 安装配置http服务
+</h3><p>这里使用了docker来运行http服务<br>
+这里是将宿主机的81端口映射到了docker容器httpd的80端口，将宿主机的/whxlocalyum文件夹映射到了docker容器httpd的/usr/local/apache2/htdocs/whxlocalnetworkyum文件夹</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 /<span class="o">]</span><span class="c1"># docker pull httpd</span>
+</span></span><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 /<span class="o">]</span><span class="c1"># docker run -d -p 81:80 -v /whxlocalyum:/usr/local/apache2/htdocs/whxlocalnetworkyum httpd:latest </span>
+</span></span><span class="line"><span class="cl">e25750f8aca0362db4a9aa4521518facace669128ab69f9c37a41352c7dd19e1
+</span></span><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 /<span class="o">]</span><span class="c1"># docker exec -it e25750f8aca0 bash</span>
+</span></span><span class="line"><span class="cl">root@e25750f8aca0:/usr/local/apache2# <span class="nb">cd</span> htdocs/
+</span></span><span class="line"><span class="cl">root@e25750f8aca0:/usr/local/apache2/htdocs# ls -al
+</span></span></code></pre></div><p>如果docker中没有vi，可以先在docker里面安装vi:<br>
+需要先用root用户进入 docker</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 whxlocalyum<span class="o">]</span><span class="c1"># docker exec -it --user root 9f7784560008 bash</span>
+</span></span><span class="line"><span class="cl">root@9f7784560008:/usr/local/apache2# apt-get update
+</span></span><span class="line"><span class="cl">root@9f7784560008:/usr/local/apache2# apt-get install vim
+</span></span></code></pre></div><h3 id="24-创建对应yum源文件">2.4 创建对应yum源文件
+</h3><p>手动在/etc/yum.repos.d/目录下创建局域网yum源文件whxlocalnetworkyum.repo</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 yum.repos.d<span class="o">]</span><span class="c1"># vi whxlocalnetworkyum.repo </span>
+</span></span><span class="line"><span class="cl"><span class="o">[</span>whxlocalnetworkyum<span class="o">]</span>
+</span></span><span class="line"><span class="cl"><span class="nv">name</span><span class="o">=</span>whxlocalnetworkyum
+</span></span><span class="line"><span class="cl"><span class="nv">baseurl</span><span class="o">=</span>http://192.168.1.160:81/whxlocalnetworkyum
+</span></span><span class="line"><span class="cl"><span class="nv">gpgcheck</span><span class="o">=</span><span class="m">0</span>
+</span></span><span class="line"><span class="cl"><span class="nv">enabled</span><span class="o">=</span><span class="m">1</span>
+</span></span><span class="line"><span class="cl">~
+</span></span></code></pre></div><h3 id="25-使用yum-repoinfo检查确认">2.5 使用yum repoinfo检查确认
+</h3><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 yum.repos.d<span class="o">]</span><span class="c1"># yum repolist</span>
+</span></span><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 yum.repos.d<span class="o">]</span><span class="c1"># yum repoinfo whxlocalnetworkyum</span>
+</span></span></code></pre></div><h3 id="25-对本地yum源仓库进行更新">2.5 对本地yum源仓库进行更新
+</h3><p>每次下载一个新的rpm软件包到本地仓库后，我们使用yum repoinfo whxcrio查看会发现软件包的数量并没有增加，我们安装新增的软件包也会提示找不到这个软件包，这是因为新下载的rpm包没有更新到仓库信息中。执行以下命令对本地仓库进行更新：</p>
+<ol>
+<li>查看旧的软件包总数 yum repoinfo whxcrio | grep pkgs</li>
+<li>更新本地仓库 createrepo &ndash;update /whxlocalyum/</li>
+<li>清除所有缓存 yum clean all</li>
+<li>查看新的软件包总数 yum repoinfo whxcrio | grep pkgs</li>
+</ol>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 whxlocalyum<span class="o">]</span><span class="c1"># yum install  --downloadonly --downloaddir=/whxlocalyum vsftpd</span>
+</span></span><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 yum.repos.d<span class="o">]</span><span class="c1"># yum repoinfo whxlocalnetworkyum</span>
+</span></span><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 yum.repos.d<span class="o">]</span><span class="c1">#  yum repoinfo whxlocalnetworkyum  | grep pkgs</span>
+</span></span><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 whxlocalyum<span class="o">]</span><span class="c1"># createrepo --update /whxlocalyum/</span>
+</span></span><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 whxlocalyum<span class="o">]</span><span class="c1"># yum  clean all</span>
+</span></span><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 whxlocalyum<span class="o">]</span><span class="c1">#  yum repoinfo whxlocalnetworkyum  | grep pkgs</span>
+</span></span></code></pre></div><h2 id="3-使用局域网内yum源">3. 使用局域网内yum源
+</h2><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 whxlocalyum<span class="o">]</span><span class="c1"># cd /etc/yum.repos.d/</span>
+</span></span><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 yum.repos.d<span class="o">]</span><span class="c1"># ls -al</span>
+</span></span><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 yum.repos.d<span class="o">]</span><span class="c1"># cat whxlocalnetworkyum.repo </span>
+</span></span><span class="line"><span class="cl"><span class="o">[</span>whxlocalnetworkyum<span class="o">]</span>
+</span></span><span class="line"><span class="cl"><span class="nv">name</span><span class="o">=</span>whxlocalnetworkyum
+</span></span><span class="line"><span class="cl"><span class="nv">baseurl</span><span class="o">=</span>http://192.168.50.160:81/whxlocalnetworkyum
+</span></span><span class="line"><span class="cl"><span class="nv">gpgcheck</span><span class="o">=</span><span class="m">0</span>
+</span></span><span class="line"><span class="cl"><span class="nv">enabled</span><span class="o">=</span><span class="m">1</span>
+</span></span><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 yum.repos.d<span class="o">]</span><span class="c1"># yum install vsftpd</span>
+</span></span></code></pre></div><h2 id="4相关log全过程">4.相关log全过程
+</h2><p><a class="link" href="http://39.105.160.122/2023/04/02/%e6%90%ad%e5%bb%ba%e4%b8%8d%e9%9c%80%e8%a6%81%e5%a4%96%e7%bd%91%e7%9a%84%e5%b1%80%e5%9f%9f%e7%bd%91%e5%86%85yum%e6%ba%90_log/"  title="搭建不需要外网的局域网内yum源_log"
+     target="_blank" rel="noopener"
+    >搭建不需要外网的局域网内yum源_log</a></p>
+
+</section>
+
+
+    <footer class="article-meta article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/linux/">Linux</a>
+        
+            <a href="/tags/yum/">Yum</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+<aside>
+    <h2 class="section-title">Related content</h2>
+    <div class="subsection-list">
+        <div class="article-list--tile">
+            
+                
+<article class="">
+    <a href="/posts/setup-local-yum-repo-without-internet-in-lan-log/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">搭建不需要外网的局域网内yum源_log</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/linux-load-average/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux中的load average</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/linux-load-average-source-code-and-testing-process/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux中的load average相关代码和测试过程</h2>
+        </div>
+    </a>
+</article>
+            
+        </div>
+    </div>
+</aside>
+
+     
+    
+        
+        <div class="disqus-container">
+    
+</div>
+
+<style>
+    .disqus-container {
+        background-color: var(--card-background);
+        border-radius: var(--card-border-radius);
+        box-shadow: var(--shadow-l1);
+        padding: var(--card-padding);
+    }
+</style>
+
+<script>
+    window.addEventListener('onColorSchemeChange', (e) => {
+        if (typeof DISQUS == 'object') {
+            DISQUS.reset({
+                reload: true
+            });
+        }
+    })
+</script>
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+        2026 
+    </section>
+    
+    <section class="powerby">
+        Built with <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> <br />
+        Theme <b><a href="https://github.com/CaiJimmy/hugo-theme-stack" target="_blank" rel="noopener" data-version="4.0.0">Stack</a></b> designed by <a href="https://jimmycai.com" target="_blank" rel="noopener">Jimmy</a>
+    </section>
+</footer>
+
+
+    
+
+
+
+<script type="module">
+    import gallery from '\/ts\/gallery.js';
+
+    const articleContent = document.querySelector('.article-content');
+    const shouldLoad = articleContent && (articleContent.querySelectorAll('figure').length > 0 || articleContent.querySelectorAll('img.gallery-image').length > 0);
+    
+    if (shouldLoad) {
+        gallery(articleContent);
+
+        const PhotoSwipeLightbox = (await import("https:\/\/cdn.jsdelivr.net\/npm\/photoswipe@5.4.4\/dist\/photoswipe-lightbox.esm.min.js")).default;
+        const styleHref = "https:\/\/cdn.jsdelivr.net\/npm\/photoswipe@5.4.4\/dist\/photoswipe.css";
+
+        const styleTag = document.createElement('link');
+        styleTag.rel = 'stylesheet';
+        styleTag.href = styleHref;
+        document.head.appendChild(styleTag);
+
+        const lightbox = new PhotoSwipeLightbox({
+            gallerySelector: '.article-content',
+            childSelector: 'figure a.image-link',
+            pswpModule: () => import("https:\/\/cdn.jsdelivr.net\/npm\/photoswipe@5.4.4\/dist\/photoswipe.esm.min.js")
+        });
+        lightbox.init();
+    }
+</script>
+    
+
+            </main>
+        </div>
+        
+<script type="text/javascript" src="/ts/main.3ee067593935e3e391e923f2aa079d2b8173732410e5e89b88be5ea1545eeff7.js" defer></script>
+
+
+    </body>
+</html>

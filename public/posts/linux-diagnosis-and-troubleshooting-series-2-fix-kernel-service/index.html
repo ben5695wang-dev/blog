@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+    <head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="如果某个Unit(服务)无法正常启动，那么在启动操作系统的时候，可能hang在初始化GUI界面而显示不出来，这时就要进入debug-shell，去查看是哪个服务卡了，导致的无法启动。\n若无法到达登录界面(如下图)，可能是内核服务加载异常。\n也就是在启动的时候，遇到了某个服务无法启动时，很可能是这个服务的 依赖链 的问题，而这个问题可以通过 unit file来追踪。\n1. Unit文件和Targets 在/etc/systemd/system中，以service结尾的，都是对应当前被启动的某个服务的。\n以target或target.wants结尾的都是对应不同runlevels的。\n.target 文件定义了 systemd 的目标单元，它们是一组服务的集合，这些服务在特定的运行级别或条件满足时一起启动或停止。例如，multi-user.target 包含了启动多用户模式所需的服务。\n.target.wants: 这个目录包含了指向 .service 文件的符号链接。当一个 .target 被激活时，这个目录下的所有符号链接指向的服务都会被启动。这允许管理员定义在特定目标激活时需要启动的服务。\n以requires结尾的是其他附加服务的unit files的目录。\nUnitfile格式 Unitfile格式如下：\n[Unit] //Unit部分包括了一些描述性信息、文档，和该服务的必要条件(service或unit)\n//Description是描述\n//Requires是必须依赖，也就是这个服务(Unit)需要加载的unit，没有的话这个服务启动不了\n//Wants是可选依赖，也就是这个服务(Unit)想要加载的Unit，没有的话可以容忍\n//After是在这个Unit(服务)之后 加载的Unit(服务)\n//Before是在这个Unit之前 加载的Unit(服务)\n//RequiresOverridable意味着这个Unit(服务)如果被root启动，那么这个Unit(服务)可以失败，但这个Unit(服务)仍然会工作？\n//Requisite这里的Unit(服务)必须被加载\n//Conflicts这里的Unit(服务)必须在此Unit(服务)启动以前停止(也就是二者冲突)\n[Install] //用来定义服务的安装信息，包括如何启用、禁用以及设置服务在系统启动时的行为。\n//WantedBy: 指定当哪些 .target 单元被激活时，这个服务应该被启动。例如，如果你想让服务在系统达到多用户目标时启动，你可以写 WantedBy=multi-user.target。\n//RequiredBy: 指定这个服务是哪些 .target 单元的必需依赖。如果某个 .target 单元被激活，那么这个服务也会被启动。\n//Alias: 可以为服务设置别名，这样可以通过别名来启用、禁用或管理服务。\n//Also: 指定除了 WantedBy 中定义的 .target 单元外，还应该被哪些 .target 单元触发启动。\n">
+<title>Linux诊断和故障排除系列(二) -- 修复内核服务</title>
+
+
+<link rel="canonical" href="//localhost:1313/posts/linux-diagnosis-and-troubleshooting-series-2-fix-kernel-service/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap">
+
+
+<link rel="stylesheet" href="/scss/style.min.389e156f5e9bb13df5a924cfa99dfb9c39f3e01e68d9e146cd65bdae963be145.css"><meta property='og:title' content="Linux诊断和故障排除系列(二) -- 修复内核服务">
+<meta property='og:description' content="如果某个Unit(服务)无法正常启动，那么在启动操作系统的时候，可能hang在初始化GUI界面而显示不出来，这时就要进入debug-shell，去查看是哪个服务卡了，导致的无法启动。\n若无法到达登录界面(如下图)，可能是内核服务加载异常。\n也就是在启动的时候，遇到了某个服务无法启动时，很可能是这个服务的 依赖链 的问题，而这个问题可以通过 unit file来追踪。\n1. Unit文件和Targets 在/etc/systemd/system中，以service结尾的，都是对应当前被启动的某个服务的。\n以target或target.wants结尾的都是对应不同runlevels的。\n.target 文件定义了 systemd 的目标单元，它们是一组服务的集合，这些服务在特定的运行级别或条件满足时一起启动或停止。例如，multi-user.target 包含了启动多用户模式所需的服务。\n.target.wants: 这个目录包含了指向 .service 文件的符号链接。当一个 .target 被激活时，这个目录下的所有符号链接指向的服务都会被启动。这允许管理员定义在特定目标激活时需要启动的服务。\n以requires结尾的是其他附加服务的unit files的目录。\nUnitfile格式 Unitfile格式如下：\n[Unit] //Unit部分包括了一些描述性信息、文档，和该服务的必要条件(service或unit)\n//Description是描述\n//Requires是必须依赖，也就是这个服务(Unit)需要加载的unit，没有的话这个服务启动不了\n//Wants是可选依赖，也就是这个服务(Unit)想要加载的Unit，没有的话可以容忍\n//After是在这个Unit(服务)之后 加载的Unit(服务)\n//Before是在这个Unit之前 加载的Unit(服务)\n//RequiresOverridable意味着这个Unit(服务)如果被root启动，那么这个Unit(服务)可以失败，但这个Unit(服务)仍然会工作？\n//Requisite这里的Unit(服务)必须被加载\n//Conflicts这里的Unit(服务)必须在此Unit(服务)启动以前停止(也就是二者冲突)\n[Install] //用来定义服务的安装信息，包括如何启用、禁用以及设置服务在系统启动时的行为。\n//WantedBy: 指定当哪些 .target 单元被激活时，这个服务应该被启动。例如，如果你想让服务在系统达到多用户目标时启动，你可以写 WantedBy=multi-user.target。\n//RequiredBy: 指定这个服务是哪些 .target 单元的必需依赖。如果某个 .target 单元被激活，那么这个服务也会被启动。\n//Alias: 可以为服务设置别名，这样可以通过别名来启用、禁用或管理服务。\n//Also: 指定除了 WantedBy 中定义的 .target 单元外，还应该被哪些 .target 单元触发启动。\n">
+<meta property='og:url' content='//localhost:1313/posts/linux-diagnosis-and-troubleshooting-series-2-fix-kernel-service/'>
+<meta property='og:site_name' content=''>
+<meta property='og:type' content='article'><meta property='article:section' content='Posts' /><meta property='article:tag' content='Linux' /><meta property='article:tag' content='Linux诊断和故障排除' /><meta property='article:tag' content='修复内核服务' /><meta property='article:published_time' content='2024-07-01T20:02:29&#43;08:00'/><meta property='article:modified_time' content='2024-07-01T20:02:29&#43;08:00'/>
+<meta name="twitter:title" content="Linux诊断和故障排除系列(二) -- 修复内核服务">
+<meta name="twitter:description" content="如果某个Unit(服务)无法正常启动，那么在启动操作系统的时候，可能hang在初始化GUI界面而显示不出来，这时就要进入debug-shell，去查看是哪个服务卡了，导致的无法启动。\n若无法到达登录界面(如下图)，可能是内核服务加载异常。\n也就是在启动的时候，遇到了某个服务无法启动时，很可能是这个服务的 依赖链 的问题，而这个问题可以通过 unit file来追踪。\n1. Unit文件和Targets 在/etc/systemd/system中，以service结尾的，都是对应当前被启动的某个服务的。\n以target或target.wants结尾的都是对应不同runlevels的。\n.target 文件定义了 systemd 的目标单元，它们是一组服务的集合，这些服务在特定的运行级别或条件满足时一起启动或停止。例如，multi-user.target 包含了启动多用户模式所需的服务。\n.target.wants: 这个目录包含了指向 .service 文件的符号链接。当一个 .target 被激活时，这个目录下的所有符号链接指向的服务都会被启动。这允许管理员定义在特定目标激活时需要启动的服务。\n以requires结尾的是其他附加服务的unit files的目录。\nUnitfile格式 Unitfile格式如下：\n[Unit] //Unit部分包括了一些描述性信息、文档，和该服务的必要条件(service或unit)\n//Description是描述\n//Requires是必须依赖，也就是这个服务(Unit)需要加载的unit，没有的话这个服务启动不了\n//Wants是可选依赖，也就是这个服务(Unit)想要加载的Unit，没有的话可以容忍\n//After是在这个Unit(服务)之后 加载的Unit(服务)\n//Before是在这个Unit之前 加载的Unit(服务)\n//RequiresOverridable意味着这个Unit(服务)如果被root启动，那么这个Unit(服务)可以失败，但这个Unit(服务)仍然会工作？\n//Requisite这里的Unit(服务)必须被加载\n//Conflicts这里的Unit(服务)必须在此Unit(服务)启动以前停止(也就是二者冲突)\n[Install] //用来定义服务的安装信息，包括如何启用、禁用以及设置服务在系统启动时的行为。\n//WantedBy: 指定当哪些 .target 单元被激活时，这个服务应该被启动。例如，如果你想让服务在系统达到多用户目标时启动，你可以写 WantedBy=multi-user.target。\n//RequiredBy: 指定这个服务是哪些 .target 单元的必需依赖。如果某个 .target 单元被激活，那么这个服务也会被启动。\n//Alias: 可以为服务设置别名，这样可以通过别名来启用、禁用或管理服务。\n//Also: 指定除了 WantedBy 中定义的 .target 单元外，还应该被哪些 .target 单元触发启动。\n">
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="Toggle Menu">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/"></a></h1>
+            <h2 class="site-description"></h2>
+        </div>
+    </header><ol class="menu" id="main-menu">
+        
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>Dark Mode</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            
+            
+            
+            <a href="/categories/%E6%8A%80%E6%9C%AF/" style="background-color: hsl(154, 60%, 84%); color: hsl(154, 60%, 15%);">
+                技术
+            </a>
+        
+            
+            
+            
+            <a href="/categories/linux/" style="background-color: hsl(237, 60%, 84%); color: hsl(237, 60%, 15%);">
+                Linux
+            </a>
+        
+            
+            
+            
+            <a href="/categories/linux%E8%AF%8A%E6%96%AD%E5%92%8C%E6%95%85%E9%9A%9C%E6%8E%92%E9%99%A4/" style="background-color: hsl(283, 60%, 84%); color: hsl(283, 60%, 15%);">
+                Linux诊断和故障排除
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/posts/linux-diagnosis-and-troubleshooting-series-2-fix-kernel-service/">Linux诊断和故障排除系列(二) -- 修复内核服务</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    
+    
+    
+    <footer class="article-meta">
+        
+            <div class="inline-meta">
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                    <time class="article-time--published" datetime='2024-07-01T20:02:29&#43;08:00'>Monday, July 1, 2024</time>
+                
+
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                    <time class="article-time--reading">
+                        3 minutes read
+                    </time>
+                
+            </div>
+        
+
+        
+
+        
+    </footer>
+    
+</div>
+
+</header>
+
+    
+
+    <section class="article-content">
+    
+    
+    <p><!-- raw HTML omitted -->如果某个Unit(服务)无法正常启动，那么在启动操作系统的时候，可能hang在初始化GUI界面而显示不出来，这时就要进入debug-shell，去查看是哪个服务卡了，导致的无法启动。<!-- raw HTML omitted --><br>
+若无法到达登录界面(如下图)，可能是内核服务加载异常。<br>
+也就是在启动的时候，遇到了某个服务无法启动时，很可能是这个服务的 依赖链 的问题，而这个问题可以通过 unit file来追踪。<br>
+<img class="gallery-image" data-flex-basis="366px" data-flex-grow="152" height="474" loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px" src="/posts/linux-diagnosis-and-troubleshooting-series-2-fix-kernel-service/Linux_pd_02_login.png" width="723"></p>
+<h1 id="1-unit文件和targets">1. Unit文件和Targets
+</h1><p>在/etc/systemd/system中，以service结尾的，都是对应当前被启动的某个服务的。<br>
+以target或target.wants结尾的都是对应不同runlevels的。<br>
+.target 文件定义了 systemd 的目标单元，它们是一组服务的集合，这些服务在特定的运行级别或条件满足时一起启动或停止。例如，multi-user.target 包含了启动多用户模式所需的服务。<br>
+.target.wants: 这个目录包含了指向 .service 文件的符号链接。当一个 .target 被激活时，这个目录下的所有符号链接指向的服务都会被启动。这允许管理员定义在特定目标激活时需要启动的服务。<br>
+以requires结尾的是其他附加服务的unit files的目录。</p>
+<h2 id="unitfile格式">Unitfile格式
+</h2><p>Unitfile格式如下：<br>
+[Unit]      //Unit部分包括了一些描述性信息、文档，和该服务的必要条件(service或unit)<br>
+//Description是描述<br>
+//Requires是必须依赖，也就是这个服务(Unit)需要加载的unit，没有的话这个服务启动不了<br>
+//Wants是可选依赖，也就是这个服务(Unit)想要加载的Unit，没有的话可以容忍<br>
+//After是在这个Unit(服务)之后 加载的Unit(服务)<br>
+//Before是在这个Unit之前 加载的Unit(服务)<br>
+//RequiresOverridable意味着这个Unit(服务)如果被root启动，那么这个Unit(服务)可以失败，但这个Unit(服务)仍然会工作？<br>
+//Requisite这里的Unit(服务)必须被加载<br>
+//Conflicts这里的Unit(服务)必须在此Unit(服务)启动以前停止(也就是二者冲突)<br>
+[Install]       //用来定义服务的安装信息，包括如何启用、禁用以及设置服务在系统启动时的行为。<br>
+//WantedBy: 指定当哪些 .target 单元被激活时，这个服务应该被启动。例如，如果你想让服务在系统达到多用户目标时启动，你可以写 WantedBy=multi-user.target。<br>
+//RequiredBy: 指定这个服务是哪些 .target 单元的必需依赖。如果某个 .target 单元被激活，那么这个服务也会被启动。<br>
+//Alias: 可以为服务设置别名，这样可以通过别名来启用、禁用或管理服务。<br>
+//Also: 指定除了 WantedBy 中定义的 .target 单元外，还应该被哪些 .target 单元触发启动。</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl">$ ls /etc/systemd/system                                    //查看有哪些以service结尾的，也就是对应某个服务的
+</span></span><span class="line"><span class="cl">basic.target.wants       cloudResetPwdAgent.service                  default.target        getty.target.wants     multi-user.target.wants      sockets.target.wants  system-update.target.wants
+</span></span><span class="line"><span class="cl">cloud-init.target.wants  dbus-org.freedesktop.nm-dispatcher.service  default.target.wants  local-fs.target.wants  network-online.target.wants  sysinit.target.wants  uniagent.service
+</span></span><span class="line"><span class="cl">$ cat rsyslog.service                                       //查看这个服务的unit file
+</span></span><span class="line"><span class="cl"><span class="o">[</span>Unit<span class="o">]</span>                                                      //Unit部分包括了一些描述性信息、文档，和该服务的必要条件<span class="o">(</span>service或unit<span class="o">)</span>
+</span></span><span class="line"><span class="cl"><span class="nv">Description</span><span class="o">=</span>System Logging Service
+</span></span><span class="line"><span class="cl"><span class="p">;</span><span class="nv">Requires</span><span class="o">=</span>syslog.socket                                     //Requires是必须依赖，也就是这个服务<span class="o">(</span>Unit<span class="o">)</span>需要加载的unit，没有的话这个服务启动不了
+</span></span><span class="line"><span class="cl"><span class="nv">Wants</span><span class="o">=</span>network.target network-online.target                  //Wants是可选依赖，也就是这个服务<span class="o">(</span>Unit<span class="o">)</span>想要加载的Unit，没有的话可以容忍
+</span></span><span class="line"><span class="cl"><span class="nv">After</span><span class="o">=</span>network.target network-online.target                  //After是在这个服务之后 加载的Unit<span class="o">(</span>服务<span class="o">)</span>
+</span></span><span class="line"><span class="cl"><span class="nv">Documentation</span><span class="o">=</span>man:rsyslogd<span class="o">(</span>8<span class="o">)</span>
+</span></span><span class="line"><span class="cl"><span class="nv">Documentation</span><span class="o">=</span>http://www.rsyslog.com/doc/
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="o">[</span>Service<span class="o">]</span>                                                   //Service部分是这个服务是如何设置和运行的
+</span></span><span class="line"><span class="cl"><span class="nv">Type</span><span class="o">=</span>notify
+</span></span><span class="line"><span class="cl"><span class="nv">EnvironmentFile</span><span class="o">=</span>-/etc/sysconfig/rsyslog
+</span></span><span class="line"><span class="cl"><span class="nv">ExecStart</span><span class="o">=</span>/usr/sbin/rsyslogd -n <span class="nv">$SYSLOGD_OPTIONS</span>            //这个服务是如何被启动的
+</span></span><span class="line"><span class="cl"><span class="nv">Restart</span><span class="o">=</span>on-failure
+</span></span><span class="line"><span class="cl"><span class="nv">UMask</span><span class="o">=</span><span class="m">0066</span>
+</span></span><span class="line"><span class="cl"><span class="nv">StandardOutput</span><span class="o">=</span>null
+</span></span><span class="line"><span class="cl"><span class="nv">Restart</span><span class="o">=</span>on-failure
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="o">[</span>Install<span class="o">]</span>
+</span></span><span class="line"><span class="cl"><span class="nv">WantedBy</span><span class="o">=</span>multi-user.target
+</span></span><span class="line"><span class="cl"><span class="p">;</span><span class="nv">Alias</span><span class="o">=</span>syslog.service
+</span></span></code></pre></div><h2 id="12-systemctl-list-dependencies命令用来显示服务间的依赖关系">1.2 systemctl list-dependencies命令用来显示服务间的依赖关系
+</h2><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl">$ systemctl list-dependencies
+</span></span><span class="line"><span class="cl">default.target
+</span></span><span class="line"><span class="cl">......
+</span></span><span class="line"><span class="cl">● ├─basic.target
+</span></span><span class="line"><span class="cl">● │ ├─microcode.service
+</span></span><span class="line"><span class="cl">● │ ├─rhel-dmesg.service
+</span></span><span class="line"><span class="cl">● │ ├─selinux-policy-migrate-local-changes@targeted.service
+</span></span><span class="line"><span class="cl">● │ ├─paths.target
+</span></span><span class="line"><span class="cl">● │ ├─slices.target
+</span></span><span class="line"><span class="cl">● │ │ ├─-.slice
+</span></span><span class="line"><span class="cl">● │ │ └─system.slice
+</span></span></code></pre></div><p>/usr/lib/systemd/system文件夹里是服务的Unit files<br>
+<!-- raw HTML omitted -->systemd-analyze plot &gt; /tmp/plot.svg        将启动顺序和时间输出到一个SVG文件中<!-- raw HTML omitted --><br>
+<img class="gallery-image" data-flex-basis="133px" data-flex-grow="55" height="2650" loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px" src="/posts/linux-diagnosis-and-troubleshooting-series-2-fix-kernel-service/Linux_pd_02_plot.png" srcset="/posts/linux-diagnosis-and-troubleshooting-series-2-fix-kernel-service/Linux_pd_02_plot_hu_adf6161838145a83.png 800w, /posts/linux-diagnosis-and-troubleshooting-series-2-fix-kernel-service/Linux_pd_02_plot.png 1477w" width="1477"></p>
+<h1 id="2-服务的依赖">2. 服务的依赖
+</h1><p>如果Unit(服务)的Unit file(.service文件，一般在/usr/lib/systemd/system文件夹里)被破坏，那么这个服务就可能无法正常启动。<br>
+例如编辑一个 vi /usr/lib/systemd/system/firewalld.service ，把After改为Before，然后 systemctl daemon-reload</p>
+<h1 id="3-debug-shell">3. Debug shell
+</h1><h2 id="31-引导至-debug-shell">3.1 引导至 debug shell
+</h2><p>主页&gt;产品&gt;Red Hat Enterprise Linux&gt;8&gt;管理、监控和更新内核&gt;6.5. 引导至 debug shell<br>
+<a class="link" href="https://docs.redhat.com/zh_hans/documentation/red_hat_enterprise_linux/8/html/managing_monitoring_and_updating_the_kernel/proc_booting-to-the-debug-shell_assembly_making-temporary-changes-to-the-grub-menu"  target="_blank" rel="noopener"
+    >https://docs.redhat.com/zh_hans/documentation/red_hat_enterprise_linux/8/html/managing_monitoring_and_updating_the_kernel/proc_booting-to-the-debug-shell_assembly_making-temporary-changes-to-the-grub-menu</a><br>
+a. 在 GRUB 引导屏幕上，按 e 键进行编辑。<br>
+b. 在 linux 行末尾添加以下参数：systemd.debug-shell<br>
+<img class="gallery-image" data-flex-basis="1226px" data-flex-grow="511" height="144" loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px" src="/posts/linux-diagnosis-and-troubleshooting-series-2-fix-kernel-service/Linux_pd_02_debug_shell.png" width="736"><br>
+c. 按 Ctrl+x 启动到 debug shell。</p>
+<h2 id="32-连接到-debug-shell">3.2 连接到 debug shell
+</h2><p>主页&gt;产品&gt;Red Hat Enterprise Linux&gt;8&gt;管理、监控和更新内核&gt;6.6. 连接到 debug shell<br>
+<a class="link" href="https://docs.redhat.com/zh_hans/documentation/red_hat_enterprise_linux/8/html/managing_monitoring_and_updating_the_kernel/proc_connecting-to-the-debug-shell_assembly_making-temporary-changes-to-the-grub-menu"  target="_blank" rel="noopener"
+    >https://docs.redhat.com/zh_hans/documentation/red_hat_enterprise_linux/8/html/managing_monitoring_and_updating_the_kernel/proc_connecting-to-the-debug-shell_assembly_making-temporary-changes-to-the-grub-menu</a><br>
+a. 按 Ctrl+Alt+F9 连接到 debug shell。<br>
+b. debug shell 不需要身份验证，因此您可以在 TTY9 上看到类似如下的提示：<br>
+sh-4.4#<br>
+验证已经进入debug shell步骤，按照如下所示输入命令：<br>
+sh-4.4# systemctl status $$<br>
+<img class="gallery-image" data-flex-basis="849px" data-flex-grow="353" height="217" loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px" src="/posts/linux-diagnosis-and-troubleshooting-series-2-fix-kernel-service/Linux_pd_02_systemctl_status-768x217.png" width="768"><br>
+c. 要返回到默认 shell，如果引导成功，请按 Ctrl+Alt+F1。</p>
+<h2 id="33-systemctl-list-jobs-查看哪个服务卡住了">3.3 systemctl list-jobs 查看哪个服务卡住了
+</h2><p>systemctl list-jobs 列出当前正在运行的jobs，会看到有很多JOB UNIT等待启动，这时，可以翻到最下面去看看什么原因导致的。<br>
+<img class="gallery-image" data-flex-basis="440px" data-flex-grow="183" height="264" loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px" src="/posts/linux-diagnosis-and-troubleshooting-series-2-fix-kernel-service/Linux_pd_02_systemctl_list-jobs.png" width="484"></p>
+<h2 id="34-修复卡住的服务">3.4 修复卡住的服务
+</h2><p>这时，可以翻到最下面去看看什么原因导致的。然后尝试<br>
+systemctl show firewalld //查看firewalld这个服务(这里以firewall服务为例子)<br>
+systemctl status firewalld //查看firewalld这个服务的状态，查看可能是什么原因导致这个服务无法正常运行。<br>
+然后到这个服务的unit file里去看看，修改错误的行<br>
+然后reboot</p>
+<h2 id="35-关闭debug-shell">3.5 关闭debug shell
+</h2><p>正常进入OS后，不要忘记关闭debug shell<br>
+systemctl disable debug-shell.service //禁用debug shell</p>
+<h1 id="4-内核模块">4. 内核模块
+</h1><p>有一些模块是默认编译到kernel的</p>
+<h2 id="41-收集内核信息">4.1 收集内核信息
+</h2><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl">$ dmesg -Tk<span class="p">|</span>more                                        //看kernel的日志
+</span></span><span class="line"><span class="cl">$ journalctl -k                                         //只看kernel的日志
+</span></span><span class="line"><span class="cl">$ uname -r                                              //查看Kernel version
+</span></span><span class="line"><span class="cl">3.10.0-1160.92.1.el7.x86_64
+</span></span><span class="line"><span class="cl">$ cat /lib/modules/<span class="k">$(</span>uname -r<span class="k">)</span>/modules.builtin          //查看Linux 内核版本中编译的内置模块（built-in modules）
+</span></span><span class="line"><span class="cl">kernel/arch/x86/crypto/aes-x86_64.ko
+</span></span><span class="line"><span class="cl">......
+</span></span></code></pre></div><p><!-- raw HTML omitted -->$ cat /lib/modules/$(uname -r)/modules.builtin          //查看Linux 内核版本中编译的内置模块（built-in modules）<!-- raw HTML omitted --></p>
+<h2 id="42-查看模块">4.2 查看模块
+</h2><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl">$ lsmod                                                 //查看当前所有处于激活的被内核使用的模块
+</span></span><span class="line"><span class="cl">$ modinfo ext4                                          //查看module详细信息
+</span></span><span class="line"><span class="cl">$ find /lib/modules/<span class="k">$(</span>uname -r<span class="k">)</span>/ -type f -name *.ko* <span class="p">|</span>wc                            //查看当前内核版本的所有可以使用的模块
+</span></span><span class="line"><span class="cl">$ modinfo -p nvme  			//查看模块的参数
+</span></span></code></pre></div><h2 id="43-管理模块">4.3 管理模块
+</h2><p>modprobe <!-- raw HTML omitted -->		添加模块<br>
+modprobe -r <!-- raw HTML omitted -->		禁用模块</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl">$ lsmod
+</span></span><span class="line"><span class="cl">Module                  Size  Used by
+</span></span><span class="line"><span class="cl">......
+</span></span><span class="line"><span class="cl">floppy                 <span class="m">73520</span>  <span class="m">0</span>                 //使用为0，代表这个模块当前没有被使用
+</span></span><span class="line"><span class="cl">$ modprobe -r floppy                            //禁用floppy模块
+</span></span><span class="line"><span class="cl">$ lsmod                                         //再次使用lsmod查看，已经没有了
+</span></span><span class="line"><span class="cl">$ find /lib/modules/<span class="k">$(</span>uname -r<span class="k">)</span>/ -type f -name *.ko* <span class="p">|</span>grep iscsi_tcp                //查看带有iscsi_tcp的模块
+</span></span><span class="line"><span class="cl">/lib/modules/3.10.0-1160.92.1.el7.x86_64/kernel/drivers/scsi/iscsi_tcp.ko.xz
+</span></span><span class="line"><span class="cl">/lib/modules/3.10.0-1160.92.1.el7.x86_64/kernel/drivers/scsi/libiscsi_tcp.ko.xz
+</span></span><span class="line"><span class="cl">$ lsmod<span class="p">|</span>grep scsi                               //使用lsmod查看，现在没有带有scsi字样的模块
+</span></span><span class="line"><span class="cl">$ modprobe iscsi_tcp                            //禁用iscsi_tcp模块
+</span></span><span class="line"><span class="cl">$ lsmod<span class="p">|</span>grep scsi                               //使用lsmod查看，已经有了iscsi_tcp模块
+</span></span><span class="line"><span class="cl">iscsi_tcp              <span class="m">18333</span>  <span class="m">0</span> 
+</span></span><span class="line"><span class="cl">libiscsi_tcp           <span class="m">25146</span>  <span class="m">1</span> iscsi_tcp
+</span></span><span class="line"><span class="cl">libiscsi               <span class="m">57233</span>  <span class="m">2</span> libiscsi_tcp,iscsi_tcp
+</span></span><span class="line"><span class="cl">scsi_transport_iscsi   <span class="m">108101</span>  <span class="m">2</span> iscsi_tcp,libiscsi
+</span></span></code></pre></div><h2 id="44-模块参数">4.4 模块参数
+</h2><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl">$ lsmod<span class="p">|</span>grep be2iscsi                           //使用lsmod查看，当前没有带有be2scsi字样的模块
+</span></span><span class="line"><span class="cl">$ modinfo -p be2iscsi                           //查看be2iscsi模块参数
+</span></span><span class="line"><span class="cl">be_iopoll_budget: <span class="o">(</span>int<span class="o">)</span>
+</span></span><span class="line"><span class="cl">enable_msix: <span class="o">(</span>int<span class="o">)</span>
+</span></span><span class="line"><span class="cl">be_max_phys_size:Maximum Size <span class="o">(</span>In Kilobytes<span class="o">)</span> of physically contiguous memory that can be allocated. Range is <span class="m">16</span> - <span class="m">128</span> <span class="o">(</span>uint<span class="o">)</span>        //最大物理内存
+</span></span><span class="line"><span class="cl">beiscsi_log_enable:Enable logging Bit Mask
+</span></span><span class="line"><span class="cl">                                Initialization Events   : 0x01
+</span></span><span class="line"><span class="cl">                                Mailbox Events          : 0x02
+</span></span><span class="line"><span class="cl">                                Miscellaneous Events    : 0x04
+</span></span><span class="line"><span class="cl">                                Error Handling          : 0x08
+</span></span><span class="line"><span class="cl">                                IO Path Events          : 0x10
+</span></span><span class="line"><span class="cl">                                Configuration Path      : 0x20
+</span></span><span class="line"><span class="cl">                                iSCSI Protocol          : 0x40
+</span></span><span class="line"><span class="cl"> <span class="o">(</span>uint<span class="o">)</span>
+</span></span><span class="line"><span class="cl">$ modprobe be2iscsi <span class="nv">be_max_phys_size</span><span class="o">=</span><span class="m">32</span>         //加载be2iscsi模块，并设置参数be_max_phys_size为32             
+</span></span><span class="line"><span class="cl">$ ls  /sys/module/be2iscsi                      //查看当前be2iscsi模块加载的位置，从而查看其参数
+</span></span><span class="line"><span class="cl">coresize  drivers  holders  initsize  initstate  notes  parameters  refcnt  rhelversion  sections  srcversion  taint  uevent  version
+</span></span><span class="line"><span class="cl">$ ls -al /sys/module/be2iscsi/parameters        //查看当前be2iscsi模块的参数文件夹
+</span></span><span class="line"><span class="cl">total <span class="m">0</span>
+</span></span><span class="line"><span class="cl">drwxr-xr-x <span class="m">2</span> root root    <span class="m">0</span> May <span class="m">23</span> 23:28 .
+</span></span><span class="line"><span class="cl">drwxr-xr-x <span class="m">7</span> root root    <span class="m">0</span> May <span class="m">23</span> 23:27 ..
+</span></span><span class="line"><span class="cl">-r--r--r-- <span class="m">1</span> root root <span class="m">4096</span> May <span class="m">23</span> 23:29 beiscsi_log_enable
+</span></span><span class="line"><span class="cl">-r--r--r-- <span class="m">1</span> root root <span class="m">4096</span> May <span class="m">23</span> 23:29 be_max_phys_size
+</span></span><span class="line"><span class="cl">$ cat /sys/module/be2iscsi/parameters/be_max_phys_size      //查看当前be2iscsi模块的参数文件夹中的be_max_phys_size文件
+</span></span><span class="line"><span class="cl"><span class="m">32</span>
+</span></span><span class="line"><span class="cl">$ ls /etc/modprobe.d                            ///etc/modprobe.d文件夹内有很多模块的配置文件
+</span></span><span class="line"><span class="cl">blacklist-nouveau.conf  dccp-blacklist.conf  firewalld-sysctls.conf  tuned.conf
+</span></span><span class="line"><span class="cl">$ cat /etc/modprobe.d/blacklist-nouveau.conf    //可以在这个文件里写上模块名和参数及其值
+</span></span><span class="line"><span class="cl">blacklist nouveau
+</span></span><span class="line"><span class="cl">options nouveau <span class="nv">modeset</span><span class="o">=</span><span class="m">0</span>
+</span></span></code></pre></div>
+</section>
+
+
+    <footer class="article-meta article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/linux/">Linux</a>
+        
+            <a href="/tags/linux%E8%AF%8A%E6%96%AD%E5%92%8C%E6%95%85%E9%9A%9C%E6%8E%92%E9%99%A4/">Linux诊断和故障排除</a>
+        
+            <a href="/tags/%E4%BF%AE%E5%A4%8D%E5%86%85%E6%A0%B8%E6%9C%8D%E5%8A%A1/">修复内核服务</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+<aside>
+    <h2 class="section-title">Related content</h2>
+    <div class="subsection-list">
+        <div class="article-list--tile">
+            
+                
+<article class="">
+    <a href="/posts/linux-diagnosis-and-troubleshooting-series-1-fix-boot-partition/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux诊断和故障排除系列(一) -- 修复启动分区</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/linux-diagnosis-and-troubleshooting-series-0-introduction/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">linux诊断和故障排除系列(零) -- 简介</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/linux-performance-diagnosis-and-tuning-series-11-large-memory-application-tuning-case/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux性能诊断和调优系列(十一)--大内存型应用性能调优案例</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/linux-performance-diagnosis-and-tuning-series-10-storage-intensive-application-tuning-case/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux性能诊断和调优系列(十)--存储密集型应用性能调优案例</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/linux-performance-diagnosis-and-tuning-series-9-cpu-bound-application-tuning-case/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux性能诊断和调优系列(九)--计算密集型应用性能调优案例</h2>
+        </div>
+    </a>
+</article>
+            
+        </div>
+    </div>
+</aside>
+
+     
+    
+        
+        <div class="disqus-container">
+    
+</div>
+
+<style>
+    .disqus-container {
+        background-color: var(--card-background);
+        border-radius: var(--card-border-radius);
+        box-shadow: var(--shadow-l1);
+        padding: var(--card-padding);
+    }
+</style>
+
+<script>
+    window.addEventListener('onColorSchemeChange', (e) => {
+        if (typeof DISQUS == 'object') {
+            DISQUS.reset({
+                reload: true
+            });
+        }
+    })
+</script>
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+        2026 
+    </section>
+    
+    <section class="powerby">
+        Built with <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> <br />
+        Theme <b><a href="https://github.com/CaiJimmy/hugo-theme-stack" target="_blank" rel="noopener" data-version="4.0.0">Stack</a></b> designed by <a href="https://jimmycai.com" target="_blank" rel="noopener">Jimmy</a>
+    </section>
+</footer>
+
+
+    
+
+
+
+<script type="module">
+    import gallery from '\/ts\/gallery.js';
+
+    const articleContent = document.querySelector('.article-content');
+    const shouldLoad = articleContent && (articleContent.querySelectorAll('figure').length > 0 || articleContent.querySelectorAll('img.gallery-image').length > 0);
+    
+    if (shouldLoad) {
+        gallery(articleContent);
+
+        const PhotoSwipeLightbox = (await import("https:\/\/cdn.jsdelivr.net\/npm\/photoswipe@5.4.4\/dist\/photoswipe-lightbox.esm.min.js")).default;
+        const styleHref = "https:\/\/cdn.jsdelivr.net\/npm\/photoswipe@5.4.4\/dist\/photoswipe.css";
+
+        const styleTag = document.createElement('link');
+        styleTag.rel = 'stylesheet';
+        styleTag.href = styleHref;
+        document.head.appendChild(styleTag);
+
+        const lightbox = new PhotoSwipeLightbox({
+            gallerySelector: '.article-content',
+            childSelector: 'figure a.image-link',
+            pswpModule: () => import("https:\/\/cdn.jsdelivr.net\/npm\/photoswipe@5.4.4\/dist\/photoswipe.esm.min.js")
+        });
+        lightbox.init();
+    }
+</script>
+    
+
+            </main>
+        </div>
+        
+<script type="text/javascript" src="/ts/main.3ee067593935e3e391e923f2aa079d2b8173732410e5e89b88be5ea1545eeff7.js" defer></script>
+
+
+    </body>
+</html>

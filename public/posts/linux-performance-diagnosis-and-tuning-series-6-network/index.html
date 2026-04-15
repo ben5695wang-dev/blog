@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+    <head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="Linux性能诊断和调优系列(六)&ndash;网络篇\n目录 如何查看网络性能？\n网络性能瓶颈一般出现在哪里？\n网络参数一般有哪些？\n缓冲区设置多大？\nwindow scaling？\nJumbo frames(巨型帧)\n测试网络性能\n网络聚合\nTSO和GSO\n如何提高网络性能？\n总结和建议\n如何查看网络性能？ ip addr show命令显示网络ip地址及其配置信息\nip route命令显示路由信息\nnestat命令的-i参数显示网络接口的各种统计信息\nss命令显示套接字及其相关信息\nethtool命令显示网卡的驱动和硬件配置信息\niperf可用于测试网络性能\ntcpdump可用于抓取并检查网络数据包\n文章末尾有这些命令的例子和输出。\n网络性能瓶颈一般出现在哪里？ 最常见的网络性能瓶颈出现在网卡的缓冲区，在有超过其处理能力的数据包过来时，就可能会有数据包被丢弃。\n其次的性能瓶颈是应用程序的接收缓存区，一般是因为数据包无法被及时给到应用程序的进程处理。\n还有可能出现性能瓶颈的地方是中断，例如发起中断的和处理中断的不是同一颗CPU，从而导致延迟或处理器争用；或者因为中断产生livelock。\n网络参数一般有哪些？ 重要而且常用的网络参数一般有：\ntcp发送、接收缓冲区大小，过小可能会导致数据包被丢弃，过大可能会导致小数据包性能变慢。\nsocket的发送、接收缓冲区大小。\n操作系统层面TCP、UDP最大的可用内存值。\n缓冲区设置多大？ 默认的缓冲区大小为85KB，但是其实缓冲区大小与网络的质量和速度是正相关的，建议的缓冲区的值比网络的带宽与网络的速度的积大一些。\nwindow scaling？ Linux默认的窗口最大值是64KB，但是如果两端都支持，这个值是可以自动协商的，从而增大窗口。\n如果 net.ipv4.tcp_window-scaling参数设置为1，内核就会尝试协商window scaling。\nJumbo frames(巨型帧) 随着软硬件支持的网速越来越快，Jumbo frames也成为了一种必须。\n默认的MTU是1500b，这对于现代的网速(特别是局域网)已经不够用，因此可以增大MTU，大于1500的MTU叫jumbo frames。\n注意：jumbo frame要求网络中的所有设备都支持才可以！\n如果网络两端，只有一端开启了jumbo frame，而另一端没有开启，就会变成了单向网络！\n测试网络性能 测试网络性能可以借助工具，常用的工具有iperf等。\n这类工具可以指定多种参数，使用多线程让网络到达极限。\n">
+<title>Linux性能诊断和调优系列(六)--网络篇</title>
+
+
+<link rel="canonical" href="//localhost:1313/posts/linux-performance-diagnosis-and-tuning-series-6-network/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap">
+
+
+<link rel="stylesheet" href="/scss/style.min.389e156f5e9bb13df5a924cfa99dfb9c39f3e01e68d9e146cd65bdae963be145.css"><meta property='og:title' content="Linux性能诊断和调优系列(六)--网络篇">
+<meta property='og:description' content="Linux性能诊断和调优系列(六)&ndash;网络篇\n目录 如何查看网络性能？\n网络性能瓶颈一般出现在哪里？\n网络参数一般有哪些？\n缓冲区设置多大？\nwindow scaling？\nJumbo frames(巨型帧)\n测试网络性能\n网络聚合\nTSO和GSO\n如何提高网络性能？\n总结和建议\n如何查看网络性能？ ip addr show命令显示网络ip地址及其配置信息\nip route命令显示路由信息\nnestat命令的-i参数显示网络接口的各种统计信息\nss命令显示套接字及其相关信息\nethtool命令显示网卡的驱动和硬件配置信息\niperf可用于测试网络性能\ntcpdump可用于抓取并检查网络数据包\n文章末尾有这些命令的例子和输出。\n网络性能瓶颈一般出现在哪里？ 最常见的网络性能瓶颈出现在网卡的缓冲区，在有超过其处理能力的数据包过来时，就可能会有数据包被丢弃。\n其次的性能瓶颈是应用程序的接收缓存区，一般是因为数据包无法被及时给到应用程序的进程处理。\n还有可能出现性能瓶颈的地方是中断，例如发起中断的和处理中断的不是同一颗CPU，从而导致延迟或处理器争用；或者因为中断产生livelock。\n网络参数一般有哪些？ 重要而且常用的网络参数一般有：\ntcp发送、接收缓冲区大小，过小可能会导致数据包被丢弃，过大可能会导致小数据包性能变慢。\nsocket的发送、接收缓冲区大小。\n操作系统层面TCP、UDP最大的可用内存值。\n缓冲区设置多大？ 默认的缓冲区大小为85KB，但是其实缓冲区大小与网络的质量和速度是正相关的，建议的缓冲区的值比网络的带宽与网络的速度的积大一些。\nwindow scaling？ Linux默认的窗口最大值是64KB，但是如果两端都支持，这个值是可以自动协商的，从而增大窗口。\n如果 net.ipv4.tcp_window-scaling参数设置为1，内核就会尝试协商window scaling。\nJumbo frames(巨型帧) 随着软硬件支持的网速越来越快，Jumbo frames也成为了一种必须。\n默认的MTU是1500b，这对于现代的网速(特别是局域网)已经不够用，因此可以增大MTU，大于1500的MTU叫jumbo frames。\n注意：jumbo frame要求网络中的所有设备都支持才可以！\n如果网络两端，只有一端开启了jumbo frame，而另一端没有开启，就会变成了单向网络！\n测试网络性能 测试网络性能可以借助工具，常用的工具有iperf等。\n这类工具可以指定多种参数，使用多线程让网络到达极限。\n">
+<meta property='og:url' content='//localhost:1313/posts/linux-performance-diagnosis-and-tuning-series-6-network/'>
+<meta property='og:site_name' content=''>
+<meta property='og:type' content='article'><meta property='article:section' content='Posts' /><meta property='article:tag' content='Linux' /><meta property='article:tag' content='Linux性能诊断和调优系列' /><meta property='article:tag' content='network' /><meta property='article:published_time' content='2024-06-17T19:31:55&#43;08:00'/><meta property='article:modified_time' content='2024-06-17T19:31:55&#43;08:00'/>
+<meta name="twitter:title" content="Linux性能诊断和调优系列(六)--网络篇">
+<meta name="twitter:description" content="Linux性能诊断和调优系列(六)&ndash;网络篇\n目录 如何查看网络性能？\n网络性能瓶颈一般出现在哪里？\n网络参数一般有哪些？\n缓冲区设置多大？\nwindow scaling？\nJumbo frames(巨型帧)\n测试网络性能\n网络聚合\nTSO和GSO\n如何提高网络性能？\n总结和建议\n如何查看网络性能？ ip addr show命令显示网络ip地址及其配置信息\nip route命令显示路由信息\nnestat命令的-i参数显示网络接口的各种统计信息\nss命令显示套接字及其相关信息\nethtool命令显示网卡的驱动和硬件配置信息\niperf可用于测试网络性能\ntcpdump可用于抓取并检查网络数据包\n文章末尾有这些命令的例子和输出。\n网络性能瓶颈一般出现在哪里？ 最常见的网络性能瓶颈出现在网卡的缓冲区，在有超过其处理能力的数据包过来时，就可能会有数据包被丢弃。\n其次的性能瓶颈是应用程序的接收缓存区，一般是因为数据包无法被及时给到应用程序的进程处理。\n还有可能出现性能瓶颈的地方是中断，例如发起中断的和处理中断的不是同一颗CPU，从而导致延迟或处理器争用；或者因为中断产生livelock。\n网络参数一般有哪些？ 重要而且常用的网络参数一般有：\ntcp发送、接收缓冲区大小，过小可能会导致数据包被丢弃，过大可能会导致小数据包性能变慢。\nsocket的发送、接收缓冲区大小。\n操作系统层面TCP、UDP最大的可用内存值。\n缓冲区设置多大？ 默认的缓冲区大小为85KB，但是其实缓冲区大小与网络的质量和速度是正相关的，建议的缓冲区的值比网络的带宽与网络的速度的积大一些。\nwindow scaling？ Linux默认的窗口最大值是64KB，但是如果两端都支持，这个值是可以自动协商的，从而增大窗口。\n如果 net.ipv4.tcp_window-scaling参数设置为1，内核就会尝试协商window scaling。\nJumbo frames(巨型帧) 随着软硬件支持的网速越来越快，Jumbo frames也成为了一种必须。\n默认的MTU是1500b，这对于现代的网速(特别是局域网)已经不够用，因此可以增大MTU，大于1500的MTU叫jumbo frames。\n注意：jumbo frame要求网络中的所有设备都支持才可以！\n如果网络两端，只有一端开启了jumbo frame，而另一端没有开启，就会变成了单向网络！\n测试网络性能 测试网络性能可以借助工具，常用的工具有iperf等。\n这类工具可以指定多种参数，使用多线程让网络到达极限。\n">
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="Toggle Menu">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/"></a></h1>
+            <h2 class="site-description"></h2>
+        </div>
+    </header><ol class="menu" id="main-menu">
+        
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>Dark Mode</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            
+            
+            
+            <a href="/categories/%E6%8A%80%E6%9C%AF/" style="background-color: hsl(154, 60%, 84%); color: hsl(154, 60%, 15%);">
+                技术
+            </a>
+        
+            
+            
+            
+            <a href="/categories/linux/" style="background-color: hsl(237, 60%, 84%); color: hsl(237, 60%, 15%);">
+                Linux
+            </a>
+        
+            
+            
+            
+            <a href="/categories/linux%E6%80%A7%E8%83%BD%E8%AF%8A%E6%96%AD%E5%92%8C%E8%B0%83%E4%BC%98%E7%B3%BB%E5%88%97/" style="background-color: hsl(341, 60%, 84%); color: hsl(341, 60%, 15%);">
+                Linux性能诊断和调优系列
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/posts/linux-performance-diagnosis-and-tuning-series-6-network/">Linux性能诊断和调优系列(六)--网络篇</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    
+    
+    
+    <footer class="article-meta">
+        
+            <div class="inline-meta">
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                    <time class="article-time--published" datetime='2024-06-17T19:31:55&#43;08:00'>Monday, June 17, 2024</time>
+                
+
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                    <time class="article-time--reading">
+                        1 minute read
+                    </time>
+                
+            </div>
+        
+
+        
+
+        
+    </footer>
+    
+</div>
+
+</header>
+
+    
+
+    <section class="article-content">
+    
+    
+    <p>Linux性能诊断和调优系列(六)&ndash;网络篇<br>
+<img class="gallery-image" data-flex-basis="177px" data-flex-grow="73" height="733" loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px" src="/posts/linux-performance-diagnosis-and-tuning-series-6-network/20240615_nw_01.png" width="541"></p>
+<h1 id="目录">目录
+</h1><p>如何查看网络性能？<br>
+网络性能瓶颈一般出现在哪里？<br>
+网络参数一般有哪些？<br>
+缓冲区设置多大？<br>
+window scaling？<br>
+Jumbo frames(巨型帧)<br>
+测试网络性能<br>
+网络聚合<br>
+TSO和GSO<br>
+如何提高网络性能？<br>
+总结和建议</p>
+<h1 id="如何查看网络性能">如何查看网络性能？
+</h1><p>ip addr show命令显示网络ip地址及其配置信息<br>
+ip route命令显示路由信息<br>
+nestat命令的-i参数显示网络接口的各种统计信息<br>
+ss命令显示套接字及其相关信息<br>
+ethtool命令显示网卡的驱动和硬件配置信息<br>
+iperf可用于测试网络性能<br>
+tcpdump可用于抓取并检查网络数据包<br>
+文章末尾有这些命令的例子和输出。</p>
+<h1 id="网络性能瓶颈一般出现在哪里">网络性能瓶颈一般出现在哪里？
+</h1><p>最常见的网络性能瓶颈出现在网卡的缓冲区，在有超过其处理能力的数据包过来时，就可能会有数据包被丢弃。<br>
+其次的性能瓶颈是应用程序的接收缓存区，一般是因为数据包无法被及时给到应用程序的进程处理。<br>
+还有可能出现性能瓶颈的地方是中断，例如发起中断的和处理中断的不是同一颗CPU，从而导致延迟或处理器争用；或者因为中断产生livelock。</p>
+<h1 id="网络参数一般有哪些">网络参数一般有哪些？
+</h1><p>重要而且常用的网络参数一般有：<br>
+tcp发送、接收缓冲区大小，过小可能会导致数据包被丢弃，过大可能会导致小数据包性能变慢。<br>
+socket的发送、接收缓冲区大小。<br>
+操作系统层面TCP、UDP最大的可用内存值。</p>
+<h1 id="缓冲区设置多大">缓冲区设置多大？
+</h1><p>默认的缓冲区大小为85KB，但是其实缓冲区大小与网络的质量和速度是正相关的，建议的缓冲区的值比网络的带宽与网络的速度的积大一些。</p>
+<h1 id="window-scaling">window scaling？
+</h1><p>Linux默认的窗口最大值是64KB，但是如果两端都支持，这个值是可以自动协商的，从而增大窗口。<br>
+如果 net.ipv4.tcp_window-scaling参数设置为1，内核就会尝试协商window scaling。</p>
+<h1 id="jumbo-frames巨型帧">Jumbo frames(巨型帧)
+</h1><p>随着软硬件支持的网速越来越快，Jumbo frames也成为了一种必须。<br>
+默认的MTU是1500b，这对于现代的网速(特别是局域网)已经不够用，因此可以增大MTU，大于1500的MTU叫jumbo frames。<br>
+注意：jumbo frame要求网络中的所有设备都支持才可以！<br>
+如果网络两端，只有一端开启了jumbo frame，而另一端没有开启，就会变成了单向网络！</p>
+<h1 id="测试网络性能">测试网络性能
+</h1><p>测试网络性能可以借助工具，常用的工具有iperf等。<br>
+这类工具可以指定多种参数，使用多线程让网络到达极限。<br>
+<img loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px"></p>
+<h1 id="网络聚合">网络聚合
+</h1><p>可以使用ip、nmcli、teamd、bonding等命令来创建、管理网络聚合。<br>
+在Red Hat 8中，Teaming是被推荐使用，而且不影响以前的bonding drive。<br>
+但是，teamd已经在Red Hat 9中已被弃用，并计划在Red Hat 10中被移除。</p>
+<h1 id="tso和gso">TSO和GSO
+</h1><p>网速越来越快，所以允许网卡硬件来代替CPU执行数据包的分段工作，这样即可以降低CPU负载，还可以提高网络性能。<br>
+可以使用 ethtool命令来查看和修改TSO和GSO参数。<br>
+但是要注意，如果你对网络延迟很敏感，那么开启这个参数可能适得其反！</p>
+<h1 id="如何提高网络性能">如何提高网络性能？
+</h1><p>如果想提高网络性能，可以从以下几个方面考虑：</p>
+<ol>
+<li>使用更快的网卡(好像是废话)。</li>
+<li>开启TSO等硬件加速功能(如果对网络延迟不那么敏感)。</li>
+<li>开启Jumbo frames(需要整个网络支持)。</li>
+<li>根据网络情况调整缓冲区。</li>
+<li>根据整体情况设置网络参数：net.ipv4.tcp_rmem, net.ipv4.tcp_wmem, net.core.rmem_max, net.core.wmem_max。</li>
+</ol>
+<h1 id="总结和建议">总结和建议
+</h1><ol>
+<li>使用ip、ifconfig、netstat、ss、ethtool等命令查看网络配置。</li>
+<li>使用iperf、tcptop、tcpdump、wireshark等工具分析网络性能。</li>
+<li>网络性能瓶颈一般出现在缓冲区，可以根据情况修改相关参数。</li>
+<li>将window scaling的net.ipv4.tcp_window-scaling开启。</li>
+<li>如果可以，使用Jumbo frames。</li>
+<li>网络聚合是最简单增加性能和可用性的办法。</li>
+<li>TSO和GSO等offload是好东西，建议使用！</li>
+<li>提高网络性能无非就是提高网络链路各部分性能。</li>
+</ol>
+<h1 id="如何查看网络性能-1">如何查看网络性能？
+</h1><p>ip addr show命令显示网络ip地址及其配置信息<br>
+<img class="gallery-image" data-flex-basis="357px" data-flex-grow="148" height="381" loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px" src="/posts/linux-performance-diagnosis-and-tuning-series-6-network/20240615_nw_ip_a.png" width="567"><br>
+ip route命令显示路由信息<br>
+<img class="gallery-image" data-flex-basis="1686px" data-flex-grow="702" height="77" loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px" src="/posts/linux-performance-diagnosis-and-tuning-series-6-network/20240615_nw_ip_r.png" width="541"><br>
+nestat命令的-i参数显示网络接口的各种统计信息<br>
+<img class="gallery-image" data-flex-basis="1421px" data-flex-grow="592" height="117" loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px" src="/posts/linux-performance-diagnosis-and-tuning-series-6-network/20240615_nw_netstat_i.png" width="693"><br>
+ss命令显示套接字及其相关信息<br>
+<img class="gallery-image" data-flex-basis="366px" data-flex-grow="152" height="481" loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px" src="/posts/linux-performance-diagnosis-and-tuning-series-6-network/20240615_nw_ss.png" width="734"><br>
+ethtool命令显示网卡的驱动和硬件配置信息<br>
+<img class="gallery-image" data-flex-basis="264px" data-flex-grow="110" height="444" loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px" src="/posts/linux-performance-diagnosis-and-tuning-series-6-network/20240615_nw_ethtool.png" width="489"><br>
+iperf可用于测试网络性能<br>
+<img class="gallery-image" data-flex-basis="296px" data-flex-grow="123" height="473" loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px" src="/posts/linux-performance-diagnosis-and-tuning-series-6-network/20240615_nw_iperf-1.png" width="585"><br>
+tcpdump可用于抓取并检查网络数据包<br>
+<img class="gallery-image" data-flex-basis="547px" data-flex-grow="228" height="424" loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px" src="/posts/linux-performance-diagnosis-and-tuning-series-6-network/20240615_nw_tcpdump-1.png" srcset="/posts/linux-performance-diagnosis-and-tuning-series-6-network/20240615_nw_tcpdump-1_hu_45fd94bf0a96e820.png 800w, /posts/linux-performance-diagnosis-and-tuning-series-6-network/20240615_nw_tcpdump-1.png 967w" width="967"></p>
+<h1 id="更多内容请参见本系列其他文章">更多内容请参见本系列其他文章
+</h1><p>&laquo;Linux性能诊断和调优系列(一)&ndash;30秒3条命令诊断Linux性能瓶颈&raquo;<br>
+&laquo;Linux性能诊断和调优系列(二)&ndash;CPU篇&raquo;<br>
+&laquo;Linux性能诊断和调优系列(三)&ndash;内存篇&raquo;<br>
+&laquo;Linux性能诊断和调优系列(四)&ndash;硬盘篇&raquo;<br>
+&laquo;Linux性能诊断和调优系列(五)&ndash;文件系统篇&raquo;<br>
+&laquo;Linux性能诊断和调优系列(六)&ndash;网络篇&raquo;<br>
+&laquo;Linux性能诊断和调优系列(七)&ndash;虚拟机及容器篇&raquo;<br>
+&laquo;Linux性能诊断和调优系列(八)&ndash;虚拟环境性能调优案例&raquo;<br>
+&laquo;Linux性能诊断和调优系列(九)&ndash;计算密集型应用性能调优案例&raquo;<br>
+&laquo;Linux性能诊断和调优系列(十)&ndash;存储密集型应用性能调优案例&raquo;<br>
+&laquo;Linux性能诊断和调优系列(十一)&ndash;大内存型应用性能调优案例&raquo;</p>
+<p>本文内容为原创，如需转载，请务必注明原文出处。<br>
+更多相关内容，欢迎访问我的个人网站：hongxu.wang。<br>
+我们还提供免费的技术支持，欢迎通过公众号与我们联系。</p>
+
+</section>
+
+
+    <footer class="article-meta article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/linux/">Linux</a>
+        
+            <a href="/tags/linux%E6%80%A7%E8%83%BD%E8%AF%8A%E6%96%AD%E5%92%8C%E8%B0%83%E4%BC%98%E7%B3%BB%E5%88%97/">Linux性能诊断和调优系列</a>
+        
+            <a href="/tags/network/">Network</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+<aside>
+    <h2 class="section-title">Related content</h2>
+    <div class="subsection-list">
+        <div class="article-list--tile">
+            
+                
+<article class="">
+    <a href="/posts/linux-performance-diagnosis-and-tuning-series-5-filesystem/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux性能诊断和调优系列(五)--文件系统篇</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/linux-performance-diagnosis-and-tuning-series-4-disk/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux性能诊断和调优系列(四) -- 硬盘篇</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/linux-performance-diagnosis-and-tuning-series-3-memory/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux性能诊断和调优系列(三) -- 内存篇</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/linux-performance-diagnosis-and-tuning-series-2-cpu/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux性能诊断和调优系列(二) -- CPU篇</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/linux-performance-diagnosis-and-tuning-series-1-30-second-3-commands-to-diagnose-linux-performance-bottleneck/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux性能诊断和调优系列(一) -- 30秒3条命令诊断Linux性能瓶颈</h2>
+        </div>
+    </a>
+</article>
+            
+        </div>
+    </div>
+</aside>
+
+     
+    
+        
+        <div class="disqus-container">
+    
+</div>
+
+<style>
+    .disqus-container {
+        background-color: var(--card-background);
+        border-radius: var(--card-border-radius);
+        box-shadow: var(--shadow-l1);
+        padding: var(--card-padding);
+    }
+</style>
+
+<script>
+    window.addEventListener('onColorSchemeChange', (e) => {
+        if (typeof DISQUS == 'object') {
+            DISQUS.reset({
+                reload: true
+            });
+        }
+    })
+</script>
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+        2026 
+    </section>
+    
+    <section class="powerby">
+        Built with <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> <br />
+        Theme <b><a href="https://github.com/CaiJimmy/hugo-theme-stack" target="_blank" rel="noopener" data-version="4.0.0">Stack</a></b> designed by <a href="https://jimmycai.com" target="_blank" rel="noopener">Jimmy</a>
+    </section>
+</footer>
+
+
+    
+
+
+
+<script type="module">
+    import gallery from '\/ts\/gallery.js';
+
+    const articleContent = document.querySelector('.article-content');
+    const shouldLoad = articleContent && (articleContent.querySelectorAll('figure').length > 0 || articleContent.querySelectorAll('img.gallery-image').length > 0);
+    
+    if (shouldLoad) {
+        gallery(articleContent);
+
+        const PhotoSwipeLightbox = (await import("https:\/\/cdn.jsdelivr.net\/npm\/photoswipe@5.4.4\/dist\/photoswipe-lightbox.esm.min.js")).default;
+        const styleHref = "https:\/\/cdn.jsdelivr.net\/npm\/photoswipe@5.4.4\/dist\/photoswipe.css";
+
+        const styleTag = document.createElement('link');
+        styleTag.rel = 'stylesheet';
+        styleTag.href = styleHref;
+        document.head.appendChild(styleTag);
+
+        const lightbox = new PhotoSwipeLightbox({
+            gallerySelector: '.article-content',
+            childSelector: 'figure a.image-link',
+            pswpModule: () => import("https:\/\/cdn.jsdelivr.net\/npm\/photoswipe@5.4.4\/dist\/photoswipe.esm.min.js")
+        });
+        lightbox.init();
+    }
+</script>
+    
+
+            </main>
+        </div>
+        
+<script type="text/javascript" src="/ts/main.3ee067593935e3e391e923f2aa079d2b8173732410e5e89b88be5ea1545eeff7.js" defer></script>
+
+
+    </body>
+</html>

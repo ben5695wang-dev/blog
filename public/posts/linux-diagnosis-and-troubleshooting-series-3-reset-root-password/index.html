@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+    <head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="在Linux系统中，root用户拥有最高权限，能够执行系统上的所有操作。然而，如果不慎忘记了root密码，将会导致许多工作无法进行。本文将详细介绍如何通过重启系统来重置root密码。\n1. 如果有superuser用户，可以直接登录，然后sudo 如果您的系统中存在具有sudo权限的用户，重置密码将会变得非常简单。\n使用具有sudo权限的用户（如accountA）登录系统。\n执行sudo -i或su - root命令，获取root用户的shell。\n现在您可以使用passwd命令来修改root密码。\n2. 如果没有superuser用户，就需要重启系统来重置root密码 如果没有可用的superuser用户，您需要通过以下步骤来重置root密码：\n2.1 重启系统 首先，您需要重启您的Linux系统。\n2.2 在启动到bootloader的时候(如下图)按上下键，或w键，取消倒计时 在系统启动过程中，当出现启动菜单（bootloader）时，使用键盘的上下键或按w键取消自动倒计时。\n2.3 按e键编辑启动配置 按e键进入编辑模式，找到以linux16开头的行。\n将光标移动到该行的末尾，添加rd.break参数。这个参数会让系统在从initramfs移交到实际系统前中断。\n按下Ctrl + X，使用所做的更改启动\n2.4 查看/sysroot挂载方式 使用mount命令查看/sysroot的挂载方式。通常情况下，/sysroot应该是以只读模式挂载的。\n">
+<title>Linux诊断和故障排除系列(三) -- 重置root密码</title>
+
+
+<link rel="canonical" href="//localhost:1313/posts/linux-diagnosis-and-troubleshooting-series-3-reset-root-password/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap">
+
+
+<link rel="stylesheet" href="/scss/style.min.389e156f5e9bb13df5a924cfa99dfb9c39f3e01e68d9e146cd65bdae963be145.css"><meta property='og:title' content="Linux诊断和故障排除系列(三) -- 重置root密码">
+<meta property='og:description' content="在Linux系统中，root用户拥有最高权限，能够执行系统上的所有操作。然而，如果不慎忘记了root密码，将会导致许多工作无法进行。本文将详细介绍如何通过重启系统来重置root密码。\n1. 如果有superuser用户，可以直接登录，然后sudo 如果您的系统中存在具有sudo权限的用户，重置密码将会变得非常简单。\n使用具有sudo权限的用户（如accountA）登录系统。\n执行sudo -i或su - root命令，获取root用户的shell。\n现在您可以使用passwd命令来修改root密码。\n2. 如果没有superuser用户，就需要重启系统来重置root密码 如果没有可用的superuser用户，您需要通过以下步骤来重置root密码：\n2.1 重启系统 首先，您需要重启您的Linux系统。\n2.2 在启动到bootloader的时候(如下图)按上下键，或w键，取消倒计时 在系统启动过程中，当出现启动菜单（bootloader）时，使用键盘的上下键或按w键取消自动倒计时。\n2.3 按e键编辑启动配置 按e键进入编辑模式，找到以linux16开头的行。\n将光标移动到该行的末尾，添加rd.break参数。这个参数会让系统在从initramfs移交到实际系统前中断。\n按下Ctrl + X，使用所做的更改启动\n2.4 查看/sysroot挂载方式 使用mount命令查看/sysroot的挂载方式。通常情况下，/sysroot应该是以只读模式挂载的。\n">
+<meta property='og:url' content='//localhost:1313/posts/linux-diagnosis-and-troubleshooting-series-3-reset-root-password/'>
+<meta property='og:site_name' content=''>
+<meta property='og:type' content='article'><meta property='article:section' content='Posts' /><meta property='article:tag' content='Linux' /><meta property='article:tag' content='Linux诊断和故障排除' /><meta property='article:tag' content='重置root密码' /><meta property='article:published_time' content='2024-07-03T20:02:29&#43;08:00'/><meta property='article:modified_time' content='2024-07-03T20:02:29&#43;08:00'/>
+<meta name="twitter:title" content="Linux诊断和故障排除系列(三) -- 重置root密码">
+<meta name="twitter:description" content="在Linux系统中，root用户拥有最高权限，能够执行系统上的所有操作。然而，如果不慎忘记了root密码，将会导致许多工作无法进行。本文将详细介绍如何通过重启系统来重置root密码。\n1. 如果有superuser用户，可以直接登录，然后sudo 如果您的系统中存在具有sudo权限的用户，重置密码将会变得非常简单。\n使用具有sudo权限的用户（如accountA）登录系统。\n执行sudo -i或su - root命令，获取root用户的shell。\n现在您可以使用passwd命令来修改root密码。\n2. 如果没有superuser用户，就需要重启系统来重置root密码 如果没有可用的superuser用户，您需要通过以下步骤来重置root密码：\n2.1 重启系统 首先，您需要重启您的Linux系统。\n2.2 在启动到bootloader的时候(如下图)按上下键，或w键，取消倒计时 在系统启动过程中，当出现启动菜单（bootloader）时，使用键盘的上下键或按w键取消自动倒计时。\n2.3 按e键编辑启动配置 按e键进入编辑模式，找到以linux16开头的行。\n将光标移动到该行的末尾，添加rd.break参数。这个参数会让系统在从initramfs移交到实际系统前中断。\n按下Ctrl + X，使用所做的更改启动\n2.4 查看/sysroot挂载方式 使用mount命令查看/sysroot的挂载方式。通常情况下，/sysroot应该是以只读模式挂载的。\n">
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="Toggle Menu">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/"></a></h1>
+            <h2 class="site-description"></h2>
+        </div>
+    </header><ol class="menu" id="main-menu">
+        
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>Dark Mode</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            
+            
+            
+            <a href="/categories/%E6%8A%80%E6%9C%AF/" style="background-color: hsl(154, 60%, 84%); color: hsl(154, 60%, 15%);">
+                技术
+            </a>
+        
+            
+            
+            
+            <a href="/categories/linux/" style="background-color: hsl(237, 60%, 84%); color: hsl(237, 60%, 15%);">
+                Linux
+            </a>
+        
+            
+            
+            
+            <a href="/categories/linux%E8%AF%8A%E6%96%AD%E5%92%8C%E6%95%85%E9%9A%9C%E6%8E%92%E9%99%A4/" style="background-color: hsl(283, 60%, 84%); color: hsl(283, 60%, 15%);">
+                Linux诊断和故障排除
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/posts/linux-diagnosis-and-troubleshooting-series-3-reset-root-password/">Linux诊断和故障排除系列(三) -- 重置root密码</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    
+    
+    
+    <footer class="article-meta">
+        
+            <div class="inline-meta">
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                    <time class="article-time--published" datetime='2024-07-03T20:02:29&#43;08:00'>Wednesday, July 3, 2024</time>
+                
+
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                    <time class="article-time--reading">
+                        1 minute read
+                    </time>
+                
+            </div>
+        
+
+        
+
+        
+    </footer>
+    
+</div>
+
+</header>
+
+    
+
+    <section class="article-content">
+    
+    
+    <p>在Linux系统中，root用户拥有最高权限，能够执行系统上的所有操作。然而，如果不慎忘记了root密码，将会导致许多工作无法进行。本文将详细介绍如何通过重启系统来重置root密码。</p>
+<h1 id="1-如果有superuser用户可以直接登录然后sudo">1. 如果有superuser用户，可以直接登录，然后sudo
+</h1><p>如果您的系统中存在具有sudo权限的用户，重置密码将会变得非常简单。<br>
+使用具有sudo权限的用户（如accountA）登录系统。<br>
+执行sudo -i或su - root命令，获取root用户的shell。<br>
+现在您可以使用passwd命令来修改root密码。</p>
+<h1 id="2-如果没有superuser用户就需要重启系统来重置root密码">2. 如果没有superuser用户，就需要重启系统来重置root密码
+</h1><p>如果没有可用的superuser用户，您需要通过以下步骤来重置root密码：</p>
+<h2 id="21-重启系统">2.1 重启系统
+</h2><p>首先，您需要重启您的Linux系统。</p>
+<h2 id="22-在启动到bootloader的时候如下图按上下键或w键取消倒计时">2.2 在启动到bootloader的时候(如下图)按上下键，或w键，取消倒计时
+</h2><p>在系统启动过程中，当出现启动菜单（bootloader）时，使用键盘的上下键或按w键取消自动倒计时。<br>
+<img class="gallery-image" data-flex-basis="1395px" data-flex-grow="581" height="129" loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px" src="/posts/linux-diagnosis-and-troubleshooting-series-3-reset-root-password/Linux_pd_03_grub-1.png" width="750"></p>
+<h2 id="23-按e键编辑启动配置">2.3 按e键编辑启动配置
+</h2><p>按e键进入编辑模式，找到以linux16开头的行。<br>
+将光标移动到该行的末尾，添加rd.break参数。这个参数会让系统在从initramfs移交到实际系统前中断。<br>
+按下Ctrl + X，使用所做的更改启动<br>
+<img class="gallery-image" data-flex-basis="535px" data-flex-grow="222" height="340" loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px" src="/posts/linux-diagnosis-and-troubleshooting-series-3-reset-root-password/Linux_pd_03_rd.break_.png" width="758"></p>
+<h2 id="24-查看sysroot挂载方式">2.4 查看/sysroot挂载方式
+</h2><p>使用mount命令查看/sysroot的挂载方式。通常情况下，/sysroot应该是以只读模式挂载的。<br>
+<img class="gallery-image" data-flex-basis="420px" data-flex-grow="175" height="478" loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px" src="/posts/linux-diagnosis-and-troubleshooting-series-3-reset-root-password/Linux_pd_03_mount.png" srcset="/posts/linux-diagnosis-and-troubleshooting-series-3-reset-root-password/Linux_pd_03_mount_hu_df3e4516ceb18259.png 800w, /posts/linux-diagnosis-and-troubleshooting-series-3-reset-root-password/Linux_pd_03_mount.png 837w" width="837"></p>
+<h2 id="25-重新挂载sysroot为读写模式">2.5 重新挂载/sysroot为读写模式
+</h2><p>执行mount -o remount,rw /sysroot命令，将/sysroot以读写模式重新挂载。</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl"><span class="c1"># mount -o remount,rw /sysroot 命令将以读写形式重新挂载/sysroot</span>
+</span></span></code></pre></div><p><img class="gallery-image" data-flex-basis="438px" data-flex-grow="182" height="460" loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px" src="/posts/linux-diagnosis-and-troubleshooting-series-3-reset-root-password/Linux_pd_03_remount.png" srcset="/posts/linux-diagnosis-and-troubleshooting-series-3-reset-root-password/Linux_pd_03_remount_hu_54cf1d1592ad6bf8.png 800w, /posts/linux-diagnosis-and-troubleshooting-series-3-reset-root-password/Linux_pd_03_remount.png 841w" width="841"></p>
+<h2 id="26-切换根文件系统">2.6 切换根文件系统
+</h2><p>使用chroot /sysroot命令切换到根文件系统。</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl">chroot /sysroot
+</span></span></code></pre></div><p><img class="gallery-image" data-flex-basis="1245px" data-flex-grow="518" height="138" loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px" src="/posts/linux-diagnosis-and-troubleshooting-series-3-reset-root-password/Linux_pd_03_chroot.png" width="716"></p>
+<h2 id="27-修改密码">2.7 修改密码
+</h2><p>现在您可以使用passwd root命令来修改root用户的密码。</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl"><span class="c1"># passwd root</span>
+</span></span></code></pre></div><p><img class="gallery-image" data-flex-basis="868px" data-flex-grow="361" height="126" loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px" src="/posts/linux-diagnosis-and-troubleshooting-series-3-reset-root-password/Linux_pd_03_passwd.png" width="456"></p>
+<h2 id="28-更新selinux的文件上下文">2.8 更新SELinux的文件上下文
+</h2><p>如果您的系统使用SELinux，使用touch /.autorelabel命令标记所有未标记的文件，以便SELinux重新计算文件的上下文</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl">touch /.autorelabel
+</span></span></code></pre></div><p><img class="gallery-image" data-flex-basis="847px" data-flex-grow="353" height="81" loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px" src="/posts/linux-diagnosis-and-troubleshooting-series-3-reset-root-password/Linux_pd_03_touch.png" width="286"></p>
+<h2 id="29-退出并重启">2.9 退出并重启
+</h2><p>第一个exit退出 chroot存放位置，第二个exit命令退出initramfs调试shell</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl">sh-4.2# <span class="nb">exit</span>
+</span></span><span class="line"><span class="cl"><span class="nb">exit</span>
+</span></span></code></pre></div><p><img class="gallery-image" data-flex-basis="596px" data-flex-grow="248" height="66" loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px" src="/posts/linux-diagnosis-and-troubleshooting-series-3-reset-root-password/Linux_pd_03_exit1.png" width="164"></p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl">switch_root:/# <span class="nb">exit</span>
+</span></span><span class="line"><span class="cl"><span class="nb">logout</span>
+</span></span></code></pre></div><p><img class="gallery-image" data-flex-basis="1520px" data-flex-grow="633" height="110" loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px" src="/posts/linux-diagnosis-and-troubleshooting-series-3-reset-root-password/Linux_pd_03_exit2.png" width="697"></p>
+<h1 id="总结">总结
+</h1><p>通过上述步骤，即使在没有superuser权限的情况下，您也能够成功重置Linux系统的root密码。这不仅是一种实用的技能，也是系统管理员必须掌握的基本操作之一。记住，合理管理用户权限和密码是保证系统安全的关键。<br>
+希望这篇文章能够帮助您解决忘记root密码的问题。如果您有任何疑问或需要进一步的帮助，请随时联系我们。</p>
+<h1 id="更多内容请参见本系列其他文章">更多内容请参见本系列其他文章
+</h1><p>&laquo;Linux诊断和故障排除系列(一) &ndash; 修复启动分区&raquo;<br>
+&laquo;Linux诊断和故障排除系列(二) &ndash; 修复内核服务&raquo;<br>
+&laquo;Linux诊断和故障排除系列(三) &ndash; 重置root密码&raquo;<br>
+&laquo;Linux诊断和故障排除系列(四) &ndash; 修复文件系统&raquo;<br>
+&laquo;Linux诊断和故障排除系列(五) &ndash; 修复iSCSI&raquo;<br>
+&laquo;Linux诊断和故障排除系列(六) &ndash; 修复软件包及管理器&raquo;<br>
+&laquo;Linux诊断和故障排除系列(七) &ndash; 应用程序诊断&raquo;<br>
+&laquo;Linux诊断和故障排除系列(八) &ndash; 网络问题诊断&raquo;<br>
+&laquo;Linux诊断和故障排除系列(九) &ndash; 身份验证和授权问题诊断&raquo;<br>
+&laquo;Linux诊断和故障排除系列(十) &ndash; 硬件问题日志&raquo;<br>
+&laquo;Linux诊断和故障排除系列(十一) &ndash; dump设置和分析&raquo;<br>
+&laquo;Linux诊断和故障排除系列(十二) &ndash; 日志持久化和转发&raquo;<br>
+&laquo;Linux诊断和故障排除系列(十三) &ndash; 官方支持数据sos_report及其分析可视化软件&raquo;</p>
+<p>本文内容为原创，如需转载，请务必注明原文出处。<br>
+更多相关内容，欢迎访问我的个人网站：hongxu.wang。<br>
+我们还提供免费的技术支持，欢迎与我们联系。</p>
+
+</section>
+
+
+    <footer class="article-meta article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/linux/">Linux</a>
+        
+            <a href="/tags/linux%E8%AF%8A%E6%96%AD%E5%92%8C%E6%95%85%E9%9A%9C%E6%8E%92%E9%99%A4/">Linux诊断和故障排除</a>
+        
+            <a href="/tags/%E9%87%8D%E7%BD%AEroot%E5%AF%86%E7%A0%81/">重置root密码</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+<aside>
+    <h2 class="section-title">Related content</h2>
+    <div class="subsection-list">
+        <div class="article-list--tile">
+            
+                
+<article class="">
+    <a href="/posts/linux-diagnosis-and-troubleshooting-series-2-fix-kernel-service/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux诊断和故障排除系列(二) -- 修复内核服务</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/linux-diagnosis-and-troubleshooting-series-1-fix-boot-partition/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux诊断和故障排除系列(一) -- 修复启动分区</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/linux-diagnosis-and-troubleshooting-series-0-introduction/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">linux诊断和故障排除系列(零) -- 简介</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/linux-performance-diagnosis-and-tuning-series-11-large-memory-application-tuning-case/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux性能诊断和调优系列(十一)--大内存型应用性能调优案例</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/linux-performance-diagnosis-and-tuning-series-10-storage-intensive-application-tuning-case/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux性能诊断和调优系列(十)--存储密集型应用性能调优案例</h2>
+        </div>
+    </a>
+</article>
+            
+        </div>
+    </div>
+</aside>
+
+     
+    
+        
+        <div class="disqus-container">
+    
+</div>
+
+<style>
+    .disqus-container {
+        background-color: var(--card-background);
+        border-radius: var(--card-border-radius);
+        box-shadow: var(--shadow-l1);
+        padding: var(--card-padding);
+    }
+</style>
+
+<script>
+    window.addEventListener('onColorSchemeChange', (e) => {
+        if (typeof DISQUS == 'object') {
+            DISQUS.reset({
+                reload: true
+            });
+        }
+    })
+</script>
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+        2026 
+    </section>
+    
+    <section class="powerby">
+        Built with <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> <br />
+        Theme <b><a href="https://github.com/CaiJimmy/hugo-theme-stack" target="_blank" rel="noopener" data-version="4.0.0">Stack</a></b> designed by <a href="https://jimmycai.com" target="_blank" rel="noopener">Jimmy</a>
+    </section>
+</footer>
+
+
+    
+
+
+
+<script type="module">
+    import gallery from '\/ts\/gallery.js';
+
+    const articleContent = document.querySelector('.article-content');
+    const shouldLoad = articleContent && (articleContent.querySelectorAll('figure').length > 0 || articleContent.querySelectorAll('img.gallery-image').length > 0);
+    
+    if (shouldLoad) {
+        gallery(articleContent);
+
+        const PhotoSwipeLightbox = (await import("https:\/\/cdn.jsdelivr.net\/npm\/photoswipe@5.4.4\/dist\/photoswipe-lightbox.esm.min.js")).default;
+        const styleHref = "https:\/\/cdn.jsdelivr.net\/npm\/photoswipe@5.4.4\/dist\/photoswipe.css";
+
+        const styleTag = document.createElement('link');
+        styleTag.rel = 'stylesheet';
+        styleTag.href = styleHref;
+        document.head.appendChild(styleTag);
+
+        const lightbox = new PhotoSwipeLightbox({
+            gallerySelector: '.article-content',
+            childSelector: 'figure a.image-link',
+            pswpModule: () => import("https:\/\/cdn.jsdelivr.net\/npm\/photoswipe@5.4.4\/dist\/photoswipe.esm.min.js")
+        });
+        lightbox.init();
+    }
+</script>
+    
+
+            </main>
+        </div>
+        
+<script type="text/javascript" src="/ts/main.3ee067593935e3e391e923f2aa079d2b8173732410e5e89b88be5ea1545eeff7.js" defer></script>
+
+
+    </body>
+</html>

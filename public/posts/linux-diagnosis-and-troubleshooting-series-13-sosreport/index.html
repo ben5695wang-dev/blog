@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+    <head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="sos_report 是一个在多种Linux发行版(Red Hat/Centos/Ubuntu/Debian/Fedora等及其衍生版)中默认自带的工具，用于收集系统配置和诊断信息的工具。它帮助用户收集系统的状态信息，如正在运行的内核版本、加载的模块和系统和服务配置文件之类的信息。\nSosreport在你需要获得redhat等官方的技术支持时需要它，Redhat等官方工程师会要求你服务器上的sosreport，从分析 sos report 命令输出的数据开始，以帮助故障排除。\nhttps://docs.redhat.com/zh_hans/documentation/red_hat_enterprise_linux/8/html/generating_sos_reports_for_technical_support/generating-an-sos-report-for-technical-support_generating-sos-reports-for-technical-support\n在RHEL 4.5之前，可能使用 sysreport 命令，\n在RHEL 8及以后，sos_report命令更名为 sos report\n报告中收集的信息包括来自 RHEL 系统的配置详情、系统信息和诊断信息，例如：\n运行的内核版本。\n载入的内核模块。\n系统和服务配置文件。\n诊断命令输出。\n安装的软件包列表。\nsos 程序将其收集的数据写入名为 sosreport- &lt;host_name&gt; - &lt;support_case_number&gt; - - &lt;unique_random_characters&gt;.tar.xz 的归档。\nRHEL 8+ 中的 sos report 等同于 RHEL7 及更早版本中的 sosreport 命令。因此，sos report 与 sosreport 本质上是相同的，只是在 sos 软件包中使用的不同命令语法。\n在 RHEL 7 及更早的版本中，安装的软件包名称是 sos，从系统中获取数据的命令是 sosreport。\n从 RHEL 8+ 开始，命令名称被改为只需要 sos 及可选参数 report 来执行与旧的 sos 软件包中 sosreport 同样的数据收集活动。\n">
+<title>Linux诊断和故障排除系列(十三) -- 官方支持数据sos_report及其分析可视化软件</title>
+
+
+<link rel="canonical" href="//localhost:1313/posts/linux-diagnosis-and-troubleshooting-series-13-sosreport/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap">
+
+
+<link rel="stylesheet" href="/scss/style.min.389e156f5e9bb13df5a924cfa99dfb9c39f3e01e68d9e146cd65bdae963be145.css"><meta property='og:title' content="Linux诊断和故障排除系列(十三) -- 官方支持数据sos_report及其分析可视化软件">
+<meta property='og:description' content="sos_report 是一个在多种Linux发行版(Red Hat/Centos/Ubuntu/Debian/Fedora等及其衍生版)中默认自带的工具，用于收集系统配置和诊断信息的工具。它帮助用户收集系统的状态信息，如正在运行的内核版本、加载的模块和系统和服务配置文件之类的信息。\nSosreport在你需要获得redhat等官方的技术支持时需要它，Redhat等官方工程师会要求你服务器上的sosreport，从分析 sos report 命令输出的数据开始，以帮助故障排除。\nhttps://docs.redhat.com/zh_hans/documentation/red_hat_enterprise_linux/8/html/generating_sos_reports_for_technical_support/generating-an-sos-report-for-technical-support_generating-sos-reports-for-technical-support\n在RHEL 4.5之前，可能使用 sysreport 命令，\n在RHEL 8及以后，sos_report命令更名为 sos report\n报告中收集的信息包括来自 RHEL 系统的配置详情、系统信息和诊断信息，例如：\n运行的内核版本。\n载入的内核模块。\n系统和服务配置文件。\n诊断命令输出。\n安装的软件包列表。\nsos 程序将其收集的数据写入名为 sosreport- &lt;host_name&gt; - &lt;support_case_number&gt; - - &lt;unique_random_characters&gt;.tar.xz 的归档。\nRHEL 8+ 中的 sos report 等同于 RHEL7 及更早版本中的 sosreport 命令。因此，sos report 与 sosreport 本质上是相同的，只是在 sos 软件包中使用的不同命令语法。\n在 RHEL 7 及更早的版本中，安装的软件包名称是 sos，从系统中获取数据的命令是 sosreport。\n从 RHEL 8+ 开始，命令名称被改为只需要 sos 及可选参数 report 来执行与旧的 sos 软件包中 sosreport 同样的数据收集活动。\n">
+<meta property='og:url' content='//localhost:1313/posts/linux-diagnosis-and-troubleshooting-series-13-sosreport/'>
+<meta property='og:site_name' content=''>
+<meta property='og:type' content='article'><meta property='article:section' content='Posts' /><meta property='article:tag' content='Linux' /><meta property='article:tag' content='Linux诊断和故障排除' /><meta property='article:tag' content='官方支持数据sos_report及其分析可视化软件' /><meta property='article:published_time' content='2024-07-13T20:02:29&#43;08:00'/><meta property='article:modified_time' content='2024-07-13T20:02:29&#43;08:00'/>
+<meta name="twitter:title" content="Linux诊断和故障排除系列(十三) -- 官方支持数据sos_report及其分析可视化软件">
+<meta name="twitter:description" content="sos_report 是一个在多种Linux发行版(Red Hat/Centos/Ubuntu/Debian/Fedora等及其衍生版)中默认自带的工具，用于收集系统配置和诊断信息的工具。它帮助用户收集系统的状态信息，如正在运行的内核版本、加载的模块和系统和服务配置文件之类的信息。\nSosreport在你需要获得redhat等官方的技术支持时需要它，Redhat等官方工程师会要求你服务器上的sosreport，从分析 sos report 命令输出的数据开始，以帮助故障排除。\nhttps://docs.redhat.com/zh_hans/documentation/red_hat_enterprise_linux/8/html/generating_sos_reports_for_technical_support/generating-an-sos-report-for-technical-support_generating-sos-reports-for-technical-support\n在RHEL 4.5之前，可能使用 sysreport 命令，\n在RHEL 8及以后，sos_report命令更名为 sos report\n报告中收集的信息包括来自 RHEL 系统的配置详情、系统信息和诊断信息，例如：\n运行的内核版本。\n载入的内核模块。\n系统和服务配置文件。\n诊断命令输出。\n安装的软件包列表。\nsos 程序将其收集的数据写入名为 sosreport- &lt;host_name&gt; - &lt;support_case_number&gt; - - &lt;unique_random_characters&gt;.tar.xz 的归档。\nRHEL 8+ 中的 sos report 等同于 RHEL7 及更早版本中的 sosreport 命令。因此，sos report 与 sosreport 本质上是相同的，只是在 sos 软件包中使用的不同命令语法。\n在 RHEL 7 及更早的版本中，安装的软件包名称是 sos，从系统中获取数据的命令是 sosreport。\n从 RHEL 8+ 开始，命令名称被改为只需要 sos 及可选参数 report 来执行与旧的 sos 软件包中 sosreport 同样的数据收集活动。\n">
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="Toggle Menu">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/"></a></h1>
+            <h2 class="site-description"></h2>
+        </div>
+    </header><ol class="menu" id="main-menu">
+        
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>Dark Mode</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            
+            
+            
+            <a href="/categories/%E6%8A%80%E6%9C%AF/" style="background-color: hsl(154, 60%, 84%); color: hsl(154, 60%, 15%);">
+                技术
+            </a>
+        
+            
+            
+            
+            <a href="/categories/linux/" style="background-color: hsl(237, 60%, 84%); color: hsl(237, 60%, 15%);">
+                Linux
+            </a>
+        
+            
+            
+            
+            <a href="/categories/linux%E8%AF%8A%E6%96%AD%E5%92%8C%E6%95%85%E9%9A%9C%E6%8E%92%E9%99%A4/" style="background-color: hsl(283, 60%, 84%); color: hsl(283, 60%, 15%);">
+                Linux诊断和故障排除
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/posts/linux-diagnosis-and-troubleshooting-series-13-sosreport/">Linux诊断和故障排除系列(十三) -- 官方支持数据sos_report及其分析可视化软件</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    
+    
+    
+    <footer class="article-meta">
+        
+            <div class="inline-meta">
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                    <time class="article-time--published" datetime='2024-07-13T20:02:29&#43;08:00'>Saturday, July 13, 2024</time>
+                
+
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                    <time class="article-time--reading">
+                        4 minutes read
+                    </time>
+                
+            </div>
+        
+
+        
+
+        
+    </footer>
+    
+</div>
+
+</header>
+
+    
+
+    <section class="article-content">
+    
+    
+    <p>sos_report 是一个在多种Linux发行版(Red Hat/Centos/Ubuntu/Debian/Fedora等及其衍生版)中默认自带的工具，用于收集系统配置和诊断信息的工具。它帮助用户收集系统的状态信息，如正在运行的内核版本、加载的模块和系统和服务配置文件之类的信息。<br>
+Sosreport在你需要获得redhat等官方的技术支持时需要它，Redhat等官方工程师会要求你服务器上的sosreport，从分析 sos report 命令输出的数据开始，以帮助故障排除。<br>
+<a class="link" href="https://docs.redhat.com/zh_hans/documentation/red_hat_enterprise_linux/8/html/generating_sos_reports_for_technical_support/generating-an-sos-report-for-technical-support_generating-sos-reports-for-technical-support"  target="_blank" rel="noopener"
+    >https://docs.redhat.com/zh_hans/documentation/red_hat_enterprise_linux/8/html/generating_sos_reports_for_technical_support/generating-an-sos-report-for-technical-support_generating-sos-reports-for-technical-support</a></p>
+<p>在RHEL 4.5之前，可能使用 sysreport 命令，<br>
+在RHEL 8及以后，sos_report命令更名为 sos report</p>
+<p>报告中收集的信息包括来自 RHEL 系统的配置详情、系统信息和诊断信息，例如：<br>
+运行的内核版本。<br>
+载入的内核模块。<br>
+系统和服务配置文件。<br>
+诊断命令输出。<br>
+安装的软件包列表。<br>
+sos 程序将其收集的数据写入名为 sosreport- &lt;host_name&gt; - &lt;support_case_number&gt; - <!-- raw HTML omitted --> - &lt;unique_random_characters&gt;.tar.xz 的归档。</p>
+<p>RHEL 8+ 中的 sos report 等同于 RHEL7 及更早版本中的 sosreport 命令。因此，sos report 与 sosreport 本质上是相同的，只是在 sos 软件包中使用的不同命令语法。</p>
+<p>在 RHEL 7 及更早的版本中，安装的软件包名称是 sos，从系统中获取数据的命令是 sosreport。<br>
+从 RHEL 8+ 开始，命令名称被改为只需要 sos 及可选参数 report 来执行与旧的 sos 软件包中 sosreport 同样的数据收集活动。</p>
+<h1 id="2-安装-sos-软件包">2. 安装 sos 软件包
+</h1><p>您需要 root 权限。安装 sos 软件包。</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl"><span class="o">[</span>root@server ~<span class="o">]</span><span class="c1"># yum install sos</span>
+</span></span></code></pre></div><p>验证步骤，使用 rpm 实用程序验证是否安装了 sos 软件包。</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl"><span class="o">[</span>root@server ~<span class="o">]</span><span class="c1"># rpm -q sos</span>
+</span></span><span class="line"><span class="cl">sos-4.2-15.el8.noarch
+</span></span></code></pre></div><h1 id="3-从命令行生成-sos-报告">3. 从命令行生成 sos 报告
+</h1><h2 id="31-先决条件">3.1 先决条件：
+</h2><p>已安装 sos 软件包。<br>
+您需要 root 权限。</p>
+<h2 id="32-生成sos报告">3.2 生成sos报告
+</h2><p>运行 sos report 命令并按照屏幕的说明进行操作</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl">$ sudo sos report
+</span></span></code></pre></div><p>记录下控制台输出末尾显示的 sos 报告文件名称。</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl">...
+</span></span><span class="line"><span class="cl">Finished running plugins
+</span></span><span class="line"><span class="cl">Creating compressed archive...
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">Your sos report has been generated and saved in:
+</span></span><span class="line"><span class="cl">/var/tmp/sosreport-server1-12345678-2022-04-17-qmtnqng.tar.xz
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">Size    16.51MiB
+</span></span><span class="line"><span class="cl">Owner   root
+</span></span><span class="line"><span class="cl">sha256  bf303917b689b13f0c059116d9ca55e341d5fadcd3f1473bef7299c4ad2a7f4f
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">Please send this file to your support representative.
+</span></span></code></pre></div><p>您可以使用 &ndash;batch 选项在不提示输入交互式输入的情况下生成 sos 报告。</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl"><span class="o">[</span>user@server1 ~<span class="o">]</span>$ sudo sos report --batch --case-id &lt;8-digit_case_number&gt;
+</span></span></code></pre></div><p>您还可以使用 &ndash;clean 选项来处理一个刚好的 sos 报告。</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl"><span class="o">[</span>user@server1 ~<span class="o">]</span>$ sudo sos report --clean
+</span></span></code></pre></div><p>验证步骤：<br>
+验证 sos 实用程序在 /var/tmp/ 中创建了与命令输出的描述匹配的存档。</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl"><span class="o">[</span>user@server1 ~<span class="o">]</span>$ sudo ls -l /var/tmp/sosreport*
+</span></span><span class="line"><span class="cl"><span class="o">[</span>sudo<span class="o">]</span> password <span class="k">for</span> user:
+</span></span><span class="line"><span class="cl">-rw-------. <span class="m">1</span> root root <span class="m">17310544</span> Sep <span class="m">17</span> 19:11 /var/tmp/sosreport-server1-12345678-2022-04-17-qmtnqng.tar.xz
+</span></span></code></pre></div><h2 id="33-sos-报告处理敏感信息">3.3 sos 报告处理敏感信息
+</h2><p>sos 实用程序提供了一个功能来处理潜在的敏感数据，如用户名、主机名、IP 或 MAC 地址或其他用户指定的关键字。原始 sos 报告里的数据是保持不变，新的 *-obfuscated.tar.xz 文件被生成并可以与第三方共享。<br>
+针对 sos report运行 sos clean 命令，并按照屏幕上的说明进行操作：<br>
+a. 您可以添加 &ndash;keywords 选项，以额外清理给定关键字列表。<br>
+b. 您可以添加 &ndash;usernames 选项以模糊处理进一步敏感的用户名。</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl"><span class="o">[</span>user@server1 ~<span class="o">]</span>$ sudo sos clean /var/tmp/sos-collector-2022-05-15-pafsr.tar.xz
+</span></span><span class="line"><span class="cl"><span class="o">[</span>sudo<span class="o">]</span> password <span class="k">for</span> user:
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">sos clean <span class="o">(</span>version 4.2<span class="o">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">This <span class="nb">command</span> will attempt to obfuscate information that is generally considered to be potentially sensitive. Such information includes IP addresses, MAC addresses, domain names, and any user-provided keywords.
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">Note that this utility provides a best-effort approach to data obfuscation, but it does not guarantee that such obfuscation provides <span class="nb">complete</span> coverage of all such data in the archive, or that any obfuscation is provided to data that does not fit the description above.
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">Users should review any resulting data and/or archives generated or processed by this utility <span class="k">for</span> remaining sensitive content before being passed to a third party.
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">Press ENTER to <span class="k">continue</span>, or CTRL-C to quit.
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">Found <span class="m">4</span> total reports to obfuscate, processing up to <span class="m">4</span> concurrently
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">sosreport-primary-rhel8-2022-05-15-nchbdmd :      Extracting...
+</span></span><span class="line"><span class="cl">sosreport-sos-node1-2022-05-15-wmlomgu :      Extracting...
+</span></span><span class="line"><span class="cl">sosreport-sos-node2-2022-05-15-obsudzc :      Extracting...
+</span></span><span class="line"><span class="cl">sos-collector-2022-05-15-pafsr :                   Beginning obfuscation...
+</span></span><span class="line"><span class="cl">sosreport-sos-node1-2022-05-15-wmlomgu :      Beginning obfuscation...
+</span></span><span class="line"><span class="cl">sos-collector-2022-05-15-pafsr :                   Obfuscation completed
+</span></span><span class="line"><span class="cl">sosreport-primary-rhel8-2022-05-15-nchbdmd :      Beginning obfuscation...
+</span></span><span class="line"><span class="cl">sosreport-sos-node2-2022-05-15-obsudzc :      Beginning obfuscation...
+</span></span><span class="line"><span class="cl">sosreport-primary-rhel8-2022-05-15-nchbdmd :      Re-compressing...
+</span></span><span class="line"><span class="cl">sosreport-sos-node2-2022-05-15-obsudzc :      Re-compressing...
+</span></span><span class="line"><span class="cl">sosreport-sos-node1-2022-05-15-wmlomgu :      Re-compressing...
+</span></span><span class="line"><span class="cl">sosreport-primary-rhel8-2022-05-15-nchbdmd :      Obfuscation completed
+</span></span><span class="line"><span class="cl">sosreport-sos-node2-2022-05-15-obsudzc :      Obfuscation completed
+</span></span><span class="line"><span class="cl">sosreport-sos-node1-2022-05-15-wmlomgu :      Obfuscation completed
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">Successfully obfuscated <span class="m">4</span> report<span class="o">(</span>s<span class="o">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">A mapping of obfuscated elements is available at
+</span></span><span class="line"><span class="cl">    /var/tmp/sos-collector-2022-05-15-pafsr-private_map
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">The obfuscated archive is available at
+</span></span><span class="line"><span class="cl">    /var/tmp/sos-collector-2022-05-15-pafsr-obfuscated.tar.xz
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    Size    157.10KiB
+</span></span><span class="line"><span class="cl">    Owner    root
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">Please send the obfuscated archive to your support representative and keep the mapping file private
+</span></span></code></pre></div><p>验证步骤：<br>
+验证 sos clean 命令是否在与命令输出中描述匹配的 /var/tmp/ 目录中创建了模糊的存档和模糊的归档。</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl"><span class="o">[</span>user@server1 ~<span class="o">]</span>$ sudo ls -l /var/tmp/sos-collector-2022-05-15-pafsr-private_map /var/tmp/sos-collector-2022-05-15-pafsr-obfuscated.tar.xz
+</span></span><span class="line"><span class="cl"><span class="o">[</span>sudo<span class="o">]</span> password <span class="k">for</span> user:
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">-rw-------. <span class="m">1</span> root root <span class="m">160868</span> May <span class="m">15</span> 16:10 /var/tmp/sos-collector-2022-05-15-pafsr-obfuscated.tar.xz
+</span></span><span class="line"><span class="cl">-rw-------. <span class="m">1</span> root root  <span class="m">96622</span> May <span class="m">15</span> 16:10 /var/tmp/sos-collector-2022-05-15-pafsr-private_map
+</span></span></code></pre></div><p>检查 *-private_map 文件中的 obfuscation 映射：</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl"><span class="o">[</span>user@server1 ~<span class="o">]</span>$ sudo cat /var/tmp/sos-collector-2022-05-15-pafsr-private_map
+</span></span><span class="line"><span class="cl"><span class="o">[</span>sudo<span class="o">]</span> password <span class="k">for</span> user:
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="o">{</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;hostname_map&#34;</span>: <span class="o">{</span>
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;pmoravec-rhel8&#34;</span>: <span class="s2">&#34;host0&#34;</span>
+</span></span><span class="line"><span class="cl">    <span class="o">}</span>,
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;ip_map&#34;</span>: <span class="o">{</span>
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;10.44.128.0/22&#34;</span>: <span class="s2">&#34;100.0.0.0/22&#34;</span>,
+</span></span><span class="line"><span class="cl">..
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;username_map&#34;</span>: <span class="o">{</span>
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;foobaruser&#34;</span>: <span class="s2">&#34;obfuscateduser0&#34;</span>,
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;jsmith&#34;</span>: <span class="s2">&#34;obfuscateduser1&#34;</span>,
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;johndoe&#34;</span>: <span class="s2">&#34;obfuscateduser2&#34;</span>
+</span></span><span class="line"><span class="cl">    <span class="o">}</span>
+</span></span><span class="line"><span class="cl"><span class="o">}</span>
+</span></span></code></pre></div><p>注意：保持原始的 unobfuscated 归档和 *private_map 文件，因为红帽支持可能会引用您需要转换为原始值的模糊术语。</p>
+<h1 id="4-救援环境中生成-sos-报告">4. 救援环境中生成 sos 报告
+</h1><p>如果一个 Red Hat Enterprise Linux（RHEL）主机无法正确引导，您可以将主机引导至 救援环境 中来收集 sos 报告。<br>
+使用救援环境，您可以在 /mnt/sysimage 下挂载目标系统，访问其内容并运行 sos report 命令。<br>
+a. 从安装源引导主机。<br>
+b. 在安装介质的引导菜单中，选择 Troubleshooting 选项。<br>
+c. 在故障排除菜单中选择 Rescue a Red Hat Enterprise Linux system 选项。<br>
+d. 在 Rescue 菜单中，选择 1 并按 Enter 键继续，并在 /mnt/sysimage 目录下挂载系统。<br>
+e. 提示时按 Enter 键进行一个 shell。<br>
+f. 使用 chroot /mnt/sysimage 命令将救援会话的显式根目录改为 /mnt/sysimage。<br>
+g. 可选： 您的网络将不能在初始救援环境中启动，因此请确保首先建立它。例如，如果网络需要静态 IP 地址，并且您希望通过网络传输 sos 报告，请配置网络：<br>
+g1. 确定您要使用的以太网设备：</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl">$ ip link show
+</span></span></code></pre></div><p>g2. 为网络接口分配一个 IP 地址，并设置默认网关。例如，如果您要将子网为 255.255.255.0 的 IP 地址 192.168.0.1（其 CIDR 为 24 ）添加到设备 enp1s0，请输入：</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl">$ ip address add &lt;192.168.0.1/24&gt; dev &lt;enp1s0&gt;
+</span></span><span class="line"><span class="cl">$ ip route add default via &lt;192.168.0.254&gt;
+</span></span></code></pre></div><p>g3. 向 /etc/resolv.conf 文件中添加一个 nameserver 条目，例如：</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl">$ nameserver &lt;192.168.0.5&gt;
+</span></span></code></pre></div><p>h. 运行 sos report 命令并按照屏幕的说明进行操作。<br>
+i. 记录下控制台输出末尾显示的 sos 报告文件名称。<br>
+j. 如果您的主机还没有连接到互联网，使用 scp 将 sos 报告传送到网络中的另一台主机。<br>
+k. 验证步骤<br>
+验证 sos 工具是否在 /var/tmp/ 目录中创建了一个存档。</p>
+
+</section>
+
+
+    <footer class="article-meta article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/linux/">Linux</a>
+        
+            <a href="/tags/linux%E8%AF%8A%E6%96%AD%E5%92%8C%E6%95%85%E9%9A%9C%E6%8E%92%E9%99%A4/">Linux诊断和故障排除</a>
+        
+            <a href="/tags/%E5%AE%98%E6%96%B9%E6%94%AF%E6%8C%81%E6%95%B0%E6%8D%AEsos_report%E5%8F%8A%E5%85%B6%E5%88%86%E6%9E%90%E5%8F%AF%E8%A7%86%E5%8C%96%E8%BD%AF%E4%BB%B6/">官方支持数据sos_report及其分析可视化软件</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+<aside>
+    <h2 class="section-title">Related content</h2>
+    <div class="subsection-list">
+        <div class="article-list--tile">
+            
+                
+<article class="">
+    <a href="/posts/linux-diagnosis-and-troubleshooting-series-12-log-persistence-and-forwarding/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux诊断和故障排除系列(十二) -- 日志持久化和转发</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/linux-diagnosis-and-troubleshooting-series-11-dump-setup-and-analysis/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux诊断和故障排除系列(十一) -- dump设置和分析</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/linux-diagnosis-and-troubleshooting-series-10-hardware-issue-logs/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux诊断和故障排除系列(十) -- 硬件问题日志</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/linux-diagnosis-and-troubleshooting-series-9-authentication-and-authorization-issues/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux诊断和故障排除系列(九) -- 身份验证和授权问题诊断</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/linux-diagnosis-and-troubleshooting-series-8-network-issues/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux诊断和故障排除系列(八) -- 网络问题诊断</h2>
+        </div>
+    </a>
+</article>
+            
+        </div>
+    </div>
+</aside>
+
+     
+    
+        
+        <div class="disqus-container">
+    
+</div>
+
+<style>
+    .disqus-container {
+        background-color: var(--card-background);
+        border-radius: var(--card-border-radius);
+        box-shadow: var(--shadow-l1);
+        padding: var(--card-padding);
+    }
+</style>
+
+<script>
+    window.addEventListener('onColorSchemeChange', (e) => {
+        if (typeof DISQUS == 'object') {
+            DISQUS.reset({
+                reload: true
+            });
+        }
+    })
+</script>
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+        2026 
+    </section>
+    
+    <section class="powerby">
+        Built with <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> <br />
+        Theme <b><a href="https://github.com/CaiJimmy/hugo-theme-stack" target="_blank" rel="noopener" data-version="4.0.0">Stack</a></b> designed by <a href="https://jimmycai.com" target="_blank" rel="noopener">Jimmy</a>
+    </section>
+</footer>
+
+
+    
+
+
+
+<script type="module">
+    import gallery from '\/ts\/gallery.js';
+
+    const articleContent = document.querySelector('.article-content');
+    const shouldLoad = articleContent && (articleContent.querySelectorAll('figure').length > 0 || articleContent.querySelectorAll('img.gallery-image').length > 0);
+    
+    if (shouldLoad) {
+        gallery(articleContent);
+
+        const PhotoSwipeLightbox = (await import("https:\/\/cdn.jsdelivr.net\/npm\/photoswipe@5.4.4\/dist\/photoswipe-lightbox.esm.min.js")).default;
+        const styleHref = "https:\/\/cdn.jsdelivr.net\/npm\/photoswipe@5.4.4\/dist\/photoswipe.css";
+
+        const styleTag = document.createElement('link');
+        styleTag.rel = 'stylesheet';
+        styleTag.href = styleHref;
+        document.head.appendChild(styleTag);
+
+        const lightbox = new PhotoSwipeLightbox({
+            gallerySelector: '.article-content',
+            childSelector: 'figure a.image-link',
+            pswpModule: () => import("https:\/\/cdn.jsdelivr.net\/npm\/photoswipe@5.4.4\/dist\/photoswipe.esm.min.js")
+        });
+        lightbox.init();
+    }
+</script>
+    
+
+            </main>
+        </div>
+        
+<script type="text/javascript" src="/ts/main.3ee067593935e3e391e923f2aa079d2b8173732410e5e89b88be5ea1545eeff7.js" defer></script>
+
+
+    </body>
+</html>

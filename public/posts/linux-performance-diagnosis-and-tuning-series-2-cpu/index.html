@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+    <head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="Linux性能诊断和调优系列(二) &ndash; CPU篇\n目录 如何查看CPU使用率？\n如何调整进程优先级？\n什么决定了谁能使用CPU？\nCPU的调度策略都有哪些？\n如何让进程获得更多CPU？\n如何绑定CPU？\n如何隔离CPU？\n虚拟机里的CPU有什么不同？\n什么是NUMA？\n查看和调整CPU的常用命令\n总结及建议\n如何查看CPU使用率？ vmstat 命令查看系统级的CPU负载\nmpstat 命令查看每颗CPU的使用情况\nps 命令显示进程号、进程优先级、NICE值、调度策略、使用CPU时间和进程的命令\nperf 查看程序的CPU时间都花在了哪里\n当然少不了火焰图，更直观更方便\n">
+<title>Linux性能诊断和调优系列(二) -- CPU篇</title>
+
+
+<link rel="canonical" href="//localhost:1313/posts/linux-performance-diagnosis-and-tuning-series-2-cpu/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap">
+
+
+<link rel="stylesheet" href="/scss/style.min.389e156f5e9bb13df5a924cfa99dfb9c39f3e01e68d9e146cd65bdae963be145.css"><meta property='og:title' content="Linux性能诊断和调优系列(二) -- CPU篇">
+<meta property='og:description' content="Linux性能诊断和调优系列(二) &ndash; CPU篇\n目录 如何查看CPU使用率？\n如何调整进程优先级？\n什么决定了谁能使用CPU？\nCPU的调度策略都有哪些？\n如何让进程获得更多CPU？\n如何绑定CPU？\n如何隔离CPU？\n虚拟机里的CPU有什么不同？\n什么是NUMA？\n查看和调整CPU的常用命令\n总结及建议\n如何查看CPU使用率？ vmstat 命令查看系统级的CPU负载\nmpstat 命令查看每颗CPU的使用情况\nps 命令显示进程号、进程优先级、NICE值、调度策略、使用CPU时间和进程的命令\nperf 查看程序的CPU时间都花在了哪里\n当然少不了火焰图，更直观更方便\n">
+<meta property='og:url' content='//localhost:1313/posts/linux-performance-diagnosis-and-tuning-series-2-cpu/'>
+<meta property='og:site_name' content=''>
+<meta property='og:type' content='article'><meta property='article:section' content='Posts' /><meta property='article:tag' content='Linux' /><meta property='article:tag' content='Linux性能诊断和调优系列' /><meta property='article:tag' content='cpu' /><meta property='article:published_time' content='2024-06-06T18:38:59&#43;08:00'/><meta property='article:modified_time' content='2024-06-06T18:38:59&#43;08:00'/>
+<meta name="twitter:title" content="Linux性能诊断和调优系列(二) -- CPU篇">
+<meta name="twitter:description" content="Linux性能诊断和调优系列(二) &ndash; CPU篇\n目录 如何查看CPU使用率？\n如何调整进程优先级？\n什么决定了谁能使用CPU？\nCPU的调度策略都有哪些？\n如何让进程获得更多CPU？\n如何绑定CPU？\n如何隔离CPU？\n虚拟机里的CPU有什么不同？\n什么是NUMA？\n查看和调整CPU的常用命令\n总结及建议\n如何查看CPU使用率？ vmstat 命令查看系统级的CPU负载\nmpstat 命令查看每颗CPU的使用情况\nps 命令显示进程号、进程优先级、NICE值、调度策略、使用CPU时间和进程的命令\nperf 查看程序的CPU时间都花在了哪里\n当然少不了火焰图，更直观更方便\n">
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="Toggle Menu">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/"></a></h1>
+            <h2 class="site-description"></h2>
+        </div>
+    </header><ol class="menu" id="main-menu">
+        
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>Dark Mode</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            
+            
+            
+            <a href="/categories/%E6%8A%80%E6%9C%AF/" style="background-color: hsl(154, 60%, 84%); color: hsl(154, 60%, 15%);">
+                技术
+            </a>
+        
+            
+            
+            
+            <a href="/categories/linux/" style="background-color: hsl(237, 60%, 84%); color: hsl(237, 60%, 15%);">
+                Linux
+            </a>
+        
+            
+            
+            
+            <a href="/categories/linux%E6%80%A7%E8%83%BD%E8%AF%8A%E6%96%AD%E5%92%8C%E8%B0%83%E4%BC%98%E7%B3%BB%E5%88%97/" style="background-color: hsl(341, 60%, 84%); color: hsl(341, 60%, 15%);">
+                Linux性能诊断和调优系列
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/posts/linux-performance-diagnosis-and-tuning-series-2-cpu/">Linux性能诊断和调优系列(二) -- CPU篇</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    
+    
+    
+    <footer class="article-meta">
+        
+            <div class="inline-meta">
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                    <time class="article-time--published" datetime='2024-06-06T18:38:59&#43;08:00'>Thursday, June 6, 2024</time>
+                
+
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                    <time class="article-time--reading">
+                        2 minutes read
+                    </time>
+                
+            </div>
+        
+
+        
+
+        
+    </footer>
+    
+</div>
+
+</header>
+
+    
+
+    <section class="article-content">
+    
+    
+    <p>Linux性能诊断和调优系列(二) &ndash; CPU篇<br>
+<img loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px"></p>
+<h1 id="目录">目录
+</h1><p>如何查看CPU使用率？<br>
+如何调整进程优先级？<br>
+什么决定了谁能使用CPU？<br>
+CPU的调度策略都有哪些？<br>
+如何让进程获得更多CPU？<br>
+如何绑定CPU？<br>
+如何隔离CPU？<br>
+虚拟机里的CPU有什么不同？<br>
+什么是NUMA？<br>
+查看和调整CPU的常用命令<br>
+总结及建议</p>
+<h1 id="如何查看cpu使用率">如何查看CPU使用率？
+</h1><p>vmstat 命令查看系统级的CPU负载<br>
+<img class="gallery-image" data-flex-basis="1268px" data-flex-grow="528" height="130" loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px" src="/posts/linux-performance-diagnosis-and-tuning-series-2-cpu/20240603_cpu_vmstat.png" width="687"><br>
+mpstat 命令查看每颗CPU的使用情况<br>
+<img class="gallery-image" data-flex-basis="1133px" data-flex-grow="472" height="169" loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px" src="/posts/linux-performance-diagnosis-and-tuning-series-2-cpu/20240604_cpu_mpstat.png" width="798"><br>
+ps 命令显示进程号、进程优先级、NICE值、调度策略、使用CPU时间和进程的命令<br>
+<img class="gallery-image" data-flex-basis="249px" data-flex-grow="103" height="368" loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px" src="/posts/linux-performance-diagnosis-and-tuning-series-2-cpu/20240603_cpu_ps.png" width="382"><br>
+perf 查看程序的CPU时间都花在了哪里<br>
+<img class="gallery-image" data-flex-basis="279px" data-flex-grow="116" height="682" loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px" src="/posts/linux-performance-diagnosis-and-tuning-series-2-cpu/20240604_cpu_perf.png" width="795"><br>
+当然少不了火焰图，更直观更方便<br>
+<img loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px"></p>
+<h1 id="如何调整进程优先级">如何调整进程优先级？
+</h1><p>nice命令在启动新进程时设置其nice值<br>
+<img class="gallery-image" data-flex-basis="1623px" data-flex-grow="676" height="38" loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px" src="/posts/linux-performance-diagnosis-and-tuning-series-2-cpu/20240603_nice.png" width="257"><br>
+renice命令用于改变运行中的进程的nice值<br>
+<img class="gallery-image" data-flex-basis="1453px" data-flex-grow="605" height="35" loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px" src="/posts/linux-performance-diagnosis-and-tuning-series-2-cpu/20240603_renice.png" width="212"></p>
+<h1 id="什么决定了谁能使用cpu">什么决定了谁能使用CPU？
+</h1><p>在Linux系统中(或者说在绝大部分操作系统中)，进程的优先级决定了哪个进程可以获得CPU的使用，进程的优先级的数值越小，其优先级就越高。<br>
+下图是进程的优先级图表<br>
+<img class="gallery-image" data-flex-basis="467px" data-flex-grow="194" height="355" loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px" src="/posts/linux-performance-diagnosis-and-tuning-series-2-cpu/cpu_mm_01.png" width="691"><br>
+而在Linux中，可以根据进程优先级的不同，将进程分为二类：实时进程和普通进程。<br>
+实时进程的优先级绝对值从0-99，反映到命令输出就是99-1。优先级永远高于普通进程，一般只用于操作系统，例如内存的分配和进程的调度等。你也可将你的程序或进程设置为实时进程，从而获得更多CPU，但是这样太危险了！因为这样可能导致计算机的CPU只处理你的程序，而无法处理操作系统的需求(例如响应命令或鼠标等)，从而导致计算机无响应，更可能会导致关键资源或指标超时，让计算机死机(例如watchdog在规定时间内无响应，会让计算机重启)。<br>
+普通进程的优先级绝对值从100-139，反映到命令输出就是-20-&gt;+19，也就是我们的程序等，普通进程的优先级默认是0，你可以使用nice等命令来调整其优先级。普通进程的优先级是动态的，会随着CPU的使用程度而被重置，从而让每个进程都可以获得CPU。</p>
+<p>ps命令中的pri列出static priority。rtprio列出real-time priority。ni列出nice值。cls列出scheduling policy，TS代表time-sharing，也就是non-real-time policy；FF代表FIFO，也就是real-time policy。</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl">$ ps axo pid,pri,rtprio,ni,cls,cputime,comm		<span class="o">&lt;&lt;&lt;&lt;&lt;&lt;</span>ps axl命令是用旧的UNIX变量显示的优先级-40<span class="o">(</span>最低<span class="o">)</span>到99<span class="o">(</span>最高<span class="o">)</span>；而ps axo是用新形式，是从0<span class="o">(</span>最高优先级<span class="o">)</span>到139<span class="o">(</span>最低<span class="o">)</span>
+</span></span><span class="line"><span class="cl">   PID PRI RTPRIO  NI CLS COMMAND
+</span></span><span class="line"><span class="cl">     <span class="m">4</span>  <span class="m">39</span>      - -20  TS kworker/0:0H
+</span></span><span class="line"><span class="cl">     <span class="m">6</span>  <span class="m">19</span>      -   <span class="m">0</span>  TS ksoftirqd/0
+</span></span><span class="line"><span class="cl">     <span class="m">7</span> <span class="m">139</span>     <span class="m">99</span>   -  FF migration/0
+</span></span></code></pre></div><h1 id="cpu的调度策略都有哪些">CPU的调度策略都有哪些？
+</h1><h2 id="对于实时进程cpu的调度策略三种">对于实时进程，CPU的调度策略三种：
+</h2><p>第一种是先进先出，抢到就运行，直到被IO中断或被更高优先级的抢占或自己让出CPU，这也是我不让你将你的程序设置为实时进程的原因之一，因为它真的太强了！<br>
+第二种是轮询，所有相同优先级的进程依次轮询使用CPU，这也很夸张，因为可能会导致低优先级的进程(例如普通进程)基本无法获得CPU的使用时间而饿死。<br>
+第三种是dealline，任务必须在特定时间期限内完成，总之很强大！</p>
+<h2 id="对于普通进程在linux-kernel在2623引入cfs后对应cpu的调度策略三种">对于普通进程，在Linux kernel在2.6.23引入CFS后，对应CPU的调度策略三种：
+</h2><p>第一种是普通，就是最普通的了。<br>
+第二种是BATCH，适合批处理处理，优先级低，但是会长期占用CPU的。<br>
+第三种是IDLE，其nice值低于19，适合低优先级的，例如那些可以等CPU闲下来再运行的进程。</p>
+<h1 id="scheduling-policies的kerenel参数">scheduling policies的kerenel参数
+</h1><p>在/proc/sys/kernel 文件夹中<br>
+sched_latency_ns	: 多少ns内，Q里的tasks必须被调度一次。增加这个值会增加CPU绑定进程的时间片<br>
+sched_min_granularity_ns : 最小运行CPU时间片(ns)，这个值必须比上一个值小<br>
+sched_migration_cost_ns  : 在被迁移到另一个CPU以前，在CPU上执行的最小时间(ns)。增加这个值会降低进程在CPU间移动<br>
+sched_rt_period_us	    : real time的最小CPU运行的时间片(us)。默认值是CPU的100%带宽	&laquo;&laquo;&laquo;这个很重要<br>
+sched_rt_runtime_us	    : 在每个sched_rt_period_us中，real-time tasks可用的最大CPU时间(us)<br>
+默认的sched_rt_period_us是1s，sched_rt_runtime_us是0.95s，这样就有了0.05s用于non-real-time，从而预防real-time完全占用了CPU，这个机制也叫real-time scheduler throttling</p>
+<h1 id="如何让进程获得更多cpu">如何让进程获得更多CPU？
+</h1><p>nice命令用于在启动新进程时设置其nice值，也就是相对优先级，范围 -20到+19，例如下面的命令会将your_process进程以优先级10来启动<br>
+$ nice -n 10 your_process &amp;<br>
+renice命令用于改变运行中的进程的nice值，也就是相对优先级，<br>
+例如下面的命令会将进程PID为1234的进程的nice值调整为-10<br>
+$ renice -n -10 -p 1234<br>
+还可以使用tuna或systemd来设置策略和优先级</p>
+<h1 id="修改进程的优先级">修改进程的优先级
+</h1><p>chrt - manipulate the real-time attributes of a process</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl"><span class="c1"># chrt -m	&lt;&lt;&lt;&lt;&lt;&lt;显示可调的最大和最小值</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># chrt -d --sched-runtime 5000000 --sched-deadline 10000000 --sched-period 16666666 0 simple_task		&lt;&lt;&lt; -d表明用SCHED_DEADLINE policy</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># chrt -p 1234		&lt;&lt;&lt;&lt;&lt;&lt;查看进程1234的调度策略和优先级</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># chrt -f 38 /bin/simple_task	&lt;&lt;&lt;&lt;&lt;&lt; -f使用FIFO，38是优先级。使用chrt启动一个进程，默认使用RR策略</span>
+</span></span></code></pre></div><p>一个程序可以使用sched_setscheduler()和sched_getscheduler()系统调用来设置和获得scheduling policy和real-time priority</p>
+<h1 id="如何绑定cpu">如何绑定CPU？
+</h1><p>kernel决定进程在哪个CPU上运行，当然一个进程可能会运行在多个CPU上，因为进程会中断很多次，每次中断后就可以会被调度到不同CPU上。但是对于一些进程(例如内存密集型进程)，让进程运行在特定1个或2个CPU上，这样会增加cache命中率，从而增加整体程序的性能。<br>
+在Linux中systemd的配置文件里的[Service]里的CPUAffinity可以设定这个service可以运行的CPU列表，第一个CPU是cpu 0，第二个CPU是1。&ldquo;&ldquo;代表全部CPU<br>
+[Service]<br>
+CPUAffinity=&rdquo;&rdquo;</p>
+<h1 id="如何隔离cpu">如何隔离CPU？
+</h1><p>cpu-partitioning-variables.conf文件可以配置将CPU分区，即将一些CPU划到只处理特定的进程。<br>
+例如，其中参数isolated_cores是将强制隔离的CPU列出来，从而剩余的CPU就会处理其他任务。<br>
+中断会降低性能，我们可以让一个CPU专门来处理中断，从而进一步提高性能。<br>
+在文件夹/proc/irq/中，有很多数字的文件夹，这里的每一个数字文件夹对应的就是中断请求号。而其中的smp_affinity文件就是让哪个CPU处理对应中断，1代表对应的CPU可以处理这个中断，0代表这个CPU不处理这个中断。<br>
+例如，想让中断24只在在CPU 0，1处理可以用以下命令：<br>
+$ echo 3 &gt; /proc/irq/24/smp_affinity</p>
+<h1 id="虚拟机里的cpu有什么不同">虚拟机里的CPU有什么不同？
+</h1><p>虚拟机的CPU是作为宿主机的用户态的进程运行的，所以虚拟机的CPU可以指定宿主机的物理CPU，从而增加性能，因为这样会增加cache的命令率，减少内存额外访问。<br>
+可以使用virsh vcpupin命令来设置虚拟CPU和物理CPU的依附性(在KVM、Xen、LXC等环境中)<br>
+查看虚拟CPU和物理CPU的依附性：<br>
+$ virsh vcpupin rhel8-demo<br>
+设置CPU依附性：<br>
+$ virsh vcpupin rhel8-demo 0 0</p>
+<h1 id="什么是numa">什么是NUMA？
+</h1><p>NUMA，Non-Uniform Memory Access，非一致性内存访问，是一种计算机设计架构。在NUMA架构中，CPU有独立的本地内存，与传统UMA/SMP架构对比，最大的不同之处是出现了本地内存和远程内存。<br>
+现在绝大多数服务器是NUMA架构的，对于NUMA，你只需要知道每颗CPU独立连接到一部分内存，这部分CPU直连的内存称为“本地内存”；而其他不和自己直连的内存称为“远程内存”。访问本地内存的速度比访问其他CPU的“远程内存””要快。</p>
+<h1 id="查看和调整cpu性能的常用命令">查看和调整CPU性能的常用命令
+</h1><p>vmstat        查看系统级CPU平均负载。<br>
+mpstat        查看每颗CPU的使用情况。<br>
+ps/top        查看每个进程的CPU使用情况和进程优先级。<br>
+pidstat        查看每个进程的CPU详细使用情况。<br>
+cpudist        显示每个线程的CPU使用情况。<br>
+sar -P ALL    显示每颗CPU的使用情况。<br>
+time            测量命令/程序的运行时间和各项详细信息。<br>
+ltrace            追踪程序执行时的库函数调用。<br>
+strace           追踪程序执行时的系统调用。<br>
+slabtop         显示 SLAB 分配器的情况<br>
+perf              系统级性能分析工具。<br>
+bpftrace       基于 eBPF的高级跟踪工具，可以写脚本来监控和分析程序的CPU详细使用情况。<br>
+nice              在启动新进程时设置其nice值<br>
+renice           改变运行中的进程的nice值</p>
+<h1 id="总结及建议">总结及建议
+</h1><p>使用top, vmstat, mpstat, ps, pidstat, cpudist, time等命令查看和分析CPU使用情况，然后根据CPU使用情况来进行下一步分析。<br>
+不要修改CPU相关参数！！！现代操作系统已经对CPU方面进行了优化，通常无需额外干预。<br>
+不要将你的程序设置为实时进程！！！这样你的程序虽然可以提升优先级，获得了更多的系统资源和响应速度，但同时也极大地增加了系统崩溃的风险。<br>
+除非你真的完全知道你在做什么，并且清楚响应的影响，否则不建议调整CPU相应参数。<br>
+PS：关于CPU使用率高，人们持有不同的观点。一些人认为CPU使用率高是好事，因为这意味着投入的资金正在得到有效的利用，CPU正在全力以赴地工作。而另一些人则相反，担心CPU使用率过高可能会导致资源不足，从而影响电脑的性能和稳定性。你怎么看？</p>
+<h1 id="更多内容请参见本系列其他文章">更多内容请参见本系列其他文章
+</h1><p>&laquo;Linux性能诊断和调优系列(一)&ndash;30秒3条命令诊断Linux性能瓶颈&raquo;<br>
+&laquo;Linux性能诊断和调优系列(二)&ndash;CPU篇&raquo;<br>
+&laquo;Linux性能诊断和调优系列(三)&ndash;内存篇&raquo;<br>
+&laquo;Linux性能诊断和调优系列(四)&ndash;硬盘篇&raquo;<br>
+&laquo;Linux性能诊断和调优系列(五)&ndash;文件系统篇&raquo;<br>
+&laquo;Linux性能诊断和调优系列(六)&ndash;网络篇&raquo;<br>
+&laquo;Linux性能诊断和调优系列(七)&ndash;虚拟机及容器篇&raquo;<br>
+&laquo;Linux性能诊断和调优系列(八)&ndash;虚拟环境性能调优案例&raquo;<br>
+&laquo;Linux性能诊断和调优系列(九)&ndash;计算密集型应用性能调优案例&raquo;<br>
+&laquo;Linux性能诊断和调优系列(十)&ndash;存储密集型应用性能调优案例&raquo;<br>
+&laquo;Linux性能诊断和调优系列(十一)&ndash;大内存型应用性能调优案例&raquo;</p>
+<p>本文内容为原创，如需转载，请务必注明原文出处。<br>
+更多相关内容，欢迎访问我的个人网站：hongxu.wang。<br>
+我们还提供免费的技术支持，欢迎通过公众号与我们联系。</p>
+
+</section>
+
+
+    <footer class="article-meta article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/linux/">Linux</a>
+        
+            <a href="/tags/linux%E6%80%A7%E8%83%BD%E8%AF%8A%E6%96%AD%E5%92%8C%E8%B0%83%E4%BC%98%E7%B3%BB%E5%88%97/">Linux性能诊断和调优系列</a>
+        
+            <a href="/tags/cpu/">Cpu</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+<aside>
+    <h2 class="section-title">Related content</h2>
+    <div class="subsection-list">
+        <div class="article-list--tile">
+            
+                
+<article class="">
+    <a href="/posts/linux-performance-diagnosis-and-tuning-series-1-30-second-3-commands-to-diagnose-linux-performance-bottleneck/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux性能诊断和调优系列(一) -- 30秒3条命令诊断Linux性能瓶颈</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/setup-local-yum-repo-without-internet-in-lan/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">搭建不需要外网的局域网内yum源</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/setup-local-yum-repo-without-internet-in-lan-log/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">搭建不需要外网的局域网内yum源_log</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/linux-load-average/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux中的load average</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/linux-load-average-source-code-and-testing-process/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux中的load average相关代码和测试过程</h2>
+        </div>
+    </a>
+</article>
+            
+        </div>
+    </div>
+</aside>
+
+     
+    
+        
+        <div class="disqus-container">
+    
+</div>
+
+<style>
+    .disqus-container {
+        background-color: var(--card-background);
+        border-radius: var(--card-border-radius);
+        box-shadow: var(--shadow-l1);
+        padding: var(--card-padding);
+    }
+</style>
+
+<script>
+    window.addEventListener('onColorSchemeChange', (e) => {
+        if (typeof DISQUS == 'object') {
+            DISQUS.reset({
+                reload: true
+            });
+        }
+    })
+</script>
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+        2026 
+    </section>
+    
+    <section class="powerby">
+        Built with <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> <br />
+        Theme <b><a href="https://github.com/CaiJimmy/hugo-theme-stack" target="_blank" rel="noopener" data-version="4.0.0">Stack</a></b> designed by <a href="https://jimmycai.com" target="_blank" rel="noopener">Jimmy</a>
+    </section>
+</footer>
+
+
+    
+
+
+
+<script type="module">
+    import gallery from '\/ts\/gallery.js';
+
+    const articleContent = document.querySelector('.article-content');
+    const shouldLoad = articleContent && (articleContent.querySelectorAll('figure').length > 0 || articleContent.querySelectorAll('img.gallery-image').length > 0);
+    
+    if (shouldLoad) {
+        gallery(articleContent);
+
+        const PhotoSwipeLightbox = (await import("https:\/\/cdn.jsdelivr.net\/npm\/photoswipe@5.4.4\/dist\/photoswipe-lightbox.esm.min.js")).default;
+        const styleHref = "https:\/\/cdn.jsdelivr.net\/npm\/photoswipe@5.4.4\/dist\/photoswipe.css";
+
+        const styleTag = document.createElement('link');
+        styleTag.rel = 'stylesheet';
+        styleTag.href = styleHref;
+        document.head.appendChild(styleTag);
+
+        const lightbox = new PhotoSwipeLightbox({
+            gallerySelector: '.article-content',
+            childSelector: 'figure a.image-link',
+            pswpModule: () => import("https:\/\/cdn.jsdelivr.net\/npm\/photoswipe@5.4.4\/dist\/photoswipe.esm.min.js")
+        });
+        lightbox.init();
+    }
+</script>
+    
+
+            </main>
+        </div>
+        
+<script type="text/javascript" src="/ts/main.3ee067593935e3e391e923f2aa079d2b8173732410e5e89b88be5ea1545eeff7.js" defer></script>
+
+
+    </body>
+</html>

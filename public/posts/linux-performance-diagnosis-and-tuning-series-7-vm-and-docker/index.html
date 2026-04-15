@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+    <head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="Linux性能诊断和调优系列(七)&ndash;虚拟机及容器篇\n目录 虚拟机的CPU\n虚拟机的内存\n虚拟机的磁盘\n虚拟机的网络\nPCI直通\n容器\n虚拟机和容器的性能监控\n正文 对于虚拟机及容器，最常见的性能问题一般都是因为其&quot;邻居&quot;导致的：同一宿主机的其他邻居因为高负载或运行性能测试等情况，导致其他&quot;邻居&quot;的资源和性能被损害。所以，要确保虚拟机或容器的性能，就要实现资源隔离！\n虚拟机的CPU 虚拟机的CPU是作为宿主机的进程运行的，所以可以将虚拟机CPU绑定到宿主机指定的物理CPU上，从而增加性能。\n同时，可以将为虚拟机服务的模拟器线程绑定到宿主机指定的物理CPU上，从而增加性能。\n虚拟机的内存 虚拟机的内存有2个值：max是可用的最大内存值，current是实际使用内存值，按需设置即可。\nhuge pages：如果虚拟机要使用大页，那么需要在宿主机和虚拟机都设置huge pages才可以！\nKernel Shared Memory：如果虚拟机和宿主机运行相同的操作系统或工作负载，那么有可能很多内存页是相同的，所以可以通过合并相同内存页来减少整体内存使用率。\n虚拟机的磁盘 虚拟机的磁盘可以是块设备(裸设备)，也可以是文件(镜像文件)。如果是文件，那么会因为访问过程，从而比块设备的速度慢很多。\n但是，虽然块设备提供了比文件更好的性能；可是文件提供更多的特性，例如快照、压缩、加密、可扩展、按需增长和多种预分配机制。\n虚拟机的磁盘要考虑以下二个方面： 一、限制(保证)虚拟机可使用的物理磁盘的IO，可以使用QoS来实现，从而保证其IO操作的带宽和iops。\n二、磁盘的数据缓存在宿主机哪里？是否使用宿主机的缓存？是否异步写？是倾向数据即时性?一致性?性能？是否要支持不同类型虚拟机迁移？\n虚拟机的网络 虚拟机的网络都使用SR-IOV或MR-IOV，在vmware和openstack等实现中都使用了一系列组件。所以在虚拟机的网络，最重要的就是驱动，建议选择vhost_net这类运行在用户态的，因为其性能更好！\nPCI直通 PCI直通允许虚拟机直接访问宿主机的PCI设备而不用通过虚拟化层，所以可以提高效率，接近了原生硬件的性能，但是这也限制了虚拟机的迁移特性，要慎重考虑！\n容器 对于容器，Linux使用namespace和cgroup来创建容器，所以一般是通过cgroup来隔离CPU、内存、文件系统、磁盘IO和网络IO。\n需要注意的是，在容器中，传统的性能工具可能无法正确显示容器的性能：top、uptime、mpstat、vmstat、free、iostat等这些命令都会显示与宿主机相关的性能，从而可能会产生误导。\n而perf等命令可能无法在容器内运行，或者虽然运行，但也会包括其他容器的数据。\n虚拟机和容器的性能监控 prometheus可以监控各种系统和应用程序的运行状况和性能，例如硬件资源使用情况、操作系统指标、应用程序性能、数据库性能、网络设备状态、虚拟机、容器、微服务和云服务等。\n结合支持多种数据源的Grafana，通过其自定义，实现实时展示数据、交互式图表、告警系统。\n更多内容请参见本系列其他文章 &laquo;Linux性能诊断和调优系列(一)&ndash;30秒3条命令诊断Linux性能瓶颈&raquo;\n&laquo;Linux性能诊断和调优系列(二)&ndash;CPU篇&raquo;\n&laquo;Linux性能诊断和调优系列(三)&ndash;内存篇&raquo;\n&laquo;Linux性能诊断和调优系列(四)&ndash;硬盘篇&raquo;\n&laquo;Linux性能诊断和调优系列(五)&ndash;文件系统篇&raquo;\n&laquo;Linux性能诊断和调优系列(六)&ndash;网络篇&raquo;\n&laquo;Linux性能诊断和调优系列(七)&ndash;虚拟机及容器篇&raquo;\n&laquo;Linux性能诊断和调优系列(八)&ndash;虚拟环境性能调优案例&raquo;\n&laquo;Linux性能诊断和调优系列(九)&ndash;计算密集型应用性能调优案例&raquo;\n&laquo;Linux性能诊断和调优系列(十)&ndash;存储密集型应用性能调优案例&raquo;\n&laquo;Linux性能诊断和调优系列(十一)&ndash;大内存型应用性能调优案例&raquo;\n本文内容为原创，如需转载，请务必注明原文出处。\n更多相关内容，欢迎访问我的个人网站：hongxu.wang。\n我们还提供免费的技术支持，欢迎通过公众号与我们联系。\n">
+<title>Linux性能诊断和调优系列(七)--虚拟机及容器篇</title>
+
+
+<link rel="canonical" href="//localhost:1313/posts/linux-performance-diagnosis-and-tuning-series-7-vm-and-docker/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap">
+
+
+<link rel="stylesheet" href="/scss/style.min.389e156f5e9bb13df5a924cfa99dfb9c39f3e01e68d9e146cd65bdae963be145.css"><meta property='og:title' content="Linux性能诊断和调优系列(七)--虚拟机及容器篇">
+<meta property='og:description' content="Linux性能诊断和调优系列(七)&ndash;虚拟机及容器篇\n目录 虚拟机的CPU\n虚拟机的内存\n虚拟机的磁盘\n虚拟机的网络\nPCI直通\n容器\n虚拟机和容器的性能监控\n正文 对于虚拟机及容器，最常见的性能问题一般都是因为其&quot;邻居&quot;导致的：同一宿主机的其他邻居因为高负载或运行性能测试等情况，导致其他&quot;邻居&quot;的资源和性能被损害。所以，要确保虚拟机或容器的性能，就要实现资源隔离！\n虚拟机的CPU 虚拟机的CPU是作为宿主机的进程运行的，所以可以将虚拟机CPU绑定到宿主机指定的物理CPU上，从而增加性能。\n同时，可以将为虚拟机服务的模拟器线程绑定到宿主机指定的物理CPU上，从而增加性能。\n虚拟机的内存 虚拟机的内存有2个值：max是可用的最大内存值，current是实际使用内存值，按需设置即可。\nhuge pages：如果虚拟机要使用大页，那么需要在宿主机和虚拟机都设置huge pages才可以！\nKernel Shared Memory：如果虚拟机和宿主机运行相同的操作系统或工作负载，那么有可能很多内存页是相同的，所以可以通过合并相同内存页来减少整体内存使用率。\n虚拟机的磁盘 虚拟机的磁盘可以是块设备(裸设备)，也可以是文件(镜像文件)。如果是文件，那么会因为访问过程，从而比块设备的速度慢很多。\n但是，虽然块设备提供了比文件更好的性能；可是文件提供更多的特性，例如快照、压缩、加密、可扩展、按需增长和多种预分配机制。\n虚拟机的磁盘要考虑以下二个方面： 一、限制(保证)虚拟机可使用的物理磁盘的IO，可以使用QoS来实现，从而保证其IO操作的带宽和iops。\n二、磁盘的数据缓存在宿主机哪里？是否使用宿主机的缓存？是否异步写？是倾向数据即时性?一致性?性能？是否要支持不同类型虚拟机迁移？\n虚拟机的网络 虚拟机的网络都使用SR-IOV或MR-IOV，在vmware和openstack等实现中都使用了一系列组件。所以在虚拟机的网络，最重要的就是驱动，建议选择vhost_net这类运行在用户态的，因为其性能更好！\nPCI直通 PCI直通允许虚拟机直接访问宿主机的PCI设备而不用通过虚拟化层，所以可以提高效率，接近了原生硬件的性能，但是这也限制了虚拟机的迁移特性，要慎重考虑！\n容器 对于容器，Linux使用namespace和cgroup来创建容器，所以一般是通过cgroup来隔离CPU、内存、文件系统、磁盘IO和网络IO。\n需要注意的是，在容器中，传统的性能工具可能无法正确显示容器的性能：top、uptime、mpstat、vmstat、free、iostat等这些命令都会显示与宿主机相关的性能，从而可能会产生误导。\n而perf等命令可能无法在容器内运行，或者虽然运行，但也会包括其他容器的数据。\n虚拟机和容器的性能监控 prometheus可以监控各种系统和应用程序的运行状况和性能，例如硬件资源使用情况、操作系统指标、应用程序性能、数据库性能、网络设备状态、虚拟机、容器、微服务和云服务等。\n结合支持多种数据源的Grafana，通过其自定义，实现实时展示数据、交互式图表、告警系统。\n更多内容请参见本系列其他文章 &laquo;Linux性能诊断和调优系列(一)&ndash;30秒3条命令诊断Linux性能瓶颈&raquo;\n&laquo;Linux性能诊断和调优系列(二)&ndash;CPU篇&raquo;\n&laquo;Linux性能诊断和调优系列(三)&ndash;内存篇&raquo;\n&laquo;Linux性能诊断和调优系列(四)&ndash;硬盘篇&raquo;\n&laquo;Linux性能诊断和调优系列(五)&ndash;文件系统篇&raquo;\n&laquo;Linux性能诊断和调优系列(六)&ndash;网络篇&raquo;\n&laquo;Linux性能诊断和调优系列(七)&ndash;虚拟机及容器篇&raquo;\n&laquo;Linux性能诊断和调优系列(八)&ndash;虚拟环境性能调优案例&raquo;\n&laquo;Linux性能诊断和调优系列(九)&ndash;计算密集型应用性能调优案例&raquo;\n&laquo;Linux性能诊断和调优系列(十)&ndash;存储密集型应用性能调优案例&raquo;\n&laquo;Linux性能诊断和调优系列(十一)&ndash;大内存型应用性能调优案例&raquo;\n本文内容为原创，如需转载，请务必注明原文出处。\n更多相关内容，欢迎访问我的个人网站：hongxu.wang。\n我们还提供免费的技术支持，欢迎通过公众号与我们联系。\n">
+<meta property='og:url' content='//localhost:1313/posts/linux-performance-diagnosis-and-tuning-series-7-vm-and-docker/'>
+<meta property='og:site_name' content=''>
+<meta property='og:type' content='article'><meta property='article:section' content='Posts' /><meta property='article:tag' content='Linux' /><meta property='article:tag' content='Linux性能诊断和调优系列' /><meta property='article:tag' content='虚拟机及容器' /><meta property='article:published_time' content='2024-06-18T19:31:55&#43;08:00'/><meta property='article:modified_time' content='2024-06-18T19:31:55&#43;08:00'/>
+<meta name="twitter:title" content="Linux性能诊断和调优系列(七)--虚拟机及容器篇">
+<meta name="twitter:description" content="Linux性能诊断和调优系列(七)&ndash;虚拟机及容器篇\n目录 虚拟机的CPU\n虚拟机的内存\n虚拟机的磁盘\n虚拟机的网络\nPCI直通\n容器\n虚拟机和容器的性能监控\n正文 对于虚拟机及容器，最常见的性能问题一般都是因为其&quot;邻居&quot;导致的：同一宿主机的其他邻居因为高负载或运行性能测试等情况，导致其他&quot;邻居&quot;的资源和性能被损害。所以，要确保虚拟机或容器的性能，就要实现资源隔离！\n虚拟机的CPU 虚拟机的CPU是作为宿主机的进程运行的，所以可以将虚拟机CPU绑定到宿主机指定的物理CPU上，从而增加性能。\n同时，可以将为虚拟机服务的模拟器线程绑定到宿主机指定的物理CPU上，从而增加性能。\n虚拟机的内存 虚拟机的内存有2个值：max是可用的最大内存值，current是实际使用内存值，按需设置即可。\nhuge pages：如果虚拟机要使用大页，那么需要在宿主机和虚拟机都设置huge pages才可以！\nKernel Shared Memory：如果虚拟机和宿主机运行相同的操作系统或工作负载，那么有可能很多内存页是相同的，所以可以通过合并相同内存页来减少整体内存使用率。\n虚拟机的磁盘 虚拟机的磁盘可以是块设备(裸设备)，也可以是文件(镜像文件)。如果是文件，那么会因为访问过程，从而比块设备的速度慢很多。\n但是，虽然块设备提供了比文件更好的性能；可是文件提供更多的特性，例如快照、压缩、加密、可扩展、按需增长和多种预分配机制。\n虚拟机的磁盘要考虑以下二个方面： 一、限制(保证)虚拟机可使用的物理磁盘的IO，可以使用QoS来实现，从而保证其IO操作的带宽和iops。\n二、磁盘的数据缓存在宿主机哪里？是否使用宿主机的缓存？是否异步写？是倾向数据即时性?一致性?性能？是否要支持不同类型虚拟机迁移？\n虚拟机的网络 虚拟机的网络都使用SR-IOV或MR-IOV，在vmware和openstack等实现中都使用了一系列组件。所以在虚拟机的网络，最重要的就是驱动，建议选择vhost_net这类运行在用户态的，因为其性能更好！\nPCI直通 PCI直通允许虚拟机直接访问宿主机的PCI设备而不用通过虚拟化层，所以可以提高效率，接近了原生硬件的性能，但是这也限制了虚拟机的迁移特性，要慎重考虑！\n容器 对于容器，Linux使用namespace和cgroup来创建容器，所以一般是通过cgroup来隔离CPU、内存、文件系统、磁盘IO和网络IO。\n需要注意的是，在容器中，传统的性能工具可能无法正确显示容器的性能：top、uptime、mpstat、vmstat、free、iostat等这些命令都会显示与宿主机相关的性能，从而可能会产生误导。\n而perf等命令可能无法在容器内运行，或者虽然运行，但也会包括其他容器的数据。\n虚拟机和容器的性能监控 prometheus可以监控各种系统和应用程序的运行状况和性能，例如硬件资源使用情况、操作系统指标、应用程序性能、数据库性能、网络设备状态、虚拟机、容器、微服务和云服务等。\n结合支持多种数据源的Grafana，通过其自定义，实现实时展示数据、交互式图表、告警系统。\n更多内容请参见本系列其他文章 &laquo;Linux性能诊断和调优系列(一)&ndash;30秒3条命令诊断Linux性能瓶颈&raquo;\n&laquo;Linux性能诊断和调优系列(二)&ndash;CPU篇&raquo;\n&laquo;Linux性能诊断和调优系列(三)&ndash;内存篇&raquo;\n&laquo;Linux性能诊断和调优系列(四)&ndash;硬盘篇&raquo;\n&laquo;Linux性能诊断和调优系列(五)&ndash;文件系统篇&raquo;\n&laquo;Linux性能诊断和调优系列(六)&ndash;网络篇&raquo;\n&laquo;Linux性能诊断和调优系列(七)&ndash;虚拟机及容器篇&raquo;\n&laquo;Linux性能诊断和调优系列(八)&ndash;虚拟环境性能调优案例&raquo;\n&laquo;Linux性能诊断和调优系列(九)&ndash;计算密集型应用性能调优案例&raquo;\n&laquo;Linux性能诊断和调优系列(十)&ndash;存储密集型应用性能调优案例&raquo;\n&laquo;Linux性能诊断和调优系列(十一)&ndash;大内存型应用性能调优案例&raquo;\n本文内容为原创，如需转载，请务必注明原文出处。\n更多相关内容，欢迎访问我的个人网站：hongxu.wang。\n我们还提供免费的技术支持，欢迎通过公众号与我们联系。\n">
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="Toggle Menu">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/"></a></h1>
+            <h2 class="site-description"></h2>
+        </div>
+    </header><ol class="menu" id="main-menu">
+        
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>Dark Mode</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            
+            
+            
+            <a href="/categories/%E6%8A%80%E6%9C%AF/" style="background-color: hsl(154, 60%, 84%); color: hsl(154, 60%, 15%);">
+                技术
+            </a>
+        
+            
+            
+            
+            <a href="/categories/linux/" style="background-color: hsl(237, 60%, 84%); color: hsl(237, 60%, 15%);">
+                Linux
+            </a>
+        
+            
+            
+            
+            <a href="/categories/linux%E6%80%A7%E8%83%BD%E8%AF%8A%E6%96%AD%E5%92%8C%E8%B0%83%E4%BC%98%E7%B3%BB%E5%88%97/" style="background-color: hsl(341, 60%, 84%); color: hsl(341, 60%, 15%);">
+                Linux性能诊断和调优系列
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/posts/linux-performance-diagnosis-and-tuning-series-7-vm-and-docker/">Linux性能诊断和调优系列(七)--虚拟机及容器篇</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    
+    
+    
+    <footer class="article-meta">
+        
+            <div class="inline-meta">
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                    <time class="article-time--published" datetime='2024-06-18T19:31:55&#43;08:00'>Tuesday, June 18, 2024</time>
+                
+
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                    <time class="article-time--reading">
+                        1 minute read
+                    </time>
+                
+            </div>
+        
+
+        
+
+        
+    </footer>
+    
+</div>
+
+</header>
+
+    
+
+    <section class="article-content">
+    
+    
+    <p>Linux性能诊断和调优系列(七)&ndash;虚拟机及容器篇<br>
+<img class="gallery-image" data-flex-basis="409px" data-flex-grow="170" height="321" loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px" src="/posts/linux-performance-diagnosis-and-tuning-series-7-vm-and-docker/20240617_vm_01.png" width="548"></p>
+<h1 id="目录">目录
+</h1><p>虚拟机的CPU<br>
+虚拟机的内存<br>
+虚拟机的磁盘<br>
+虚拟机的网络<br>
+PCI直通<br>
+容器<br>
+虚拟机和容器的性能监控</p>
+<h1 id="正文">正文
+</h1><p>对于虚拟机及容器，最常见的性能问题一般都是因为其&quot;邻居&quot;导致的：同一宿主机的其他邻居因为高负载或运行性能测试等情况，导致其他&quot;邻居&quot;的资源和性能被损害。所以，要确保虚拟机或容器的性能，就要实现资源隔离！</p>
+<h1 id="虚拟机的cpu">虚拟机的CPU
+</h1><p>虚拟机的CPU是作为宿主机的进程运行的，所以可以将虚拟机CPU绑定到宿主机指定的物理CPU上，从而增加性能。<br>
+同时，可以将为虚拟机服务的模拟器线程绑定到宿主机指定的物理CPU上，从而增加性能。</p>
+<h1 id="虚拟机的内存">虚拟机的内存
+</h1><p>虚拟机的内存有2个值：max是可用的最大内存值，current是实际使用内存值，按需设置即可。<br>
+huge pages：如果虚拟机要使用大页，那么需要在宿主机和虚拟机都设置huge pages才可以！<br>
+Kernel Shared Memory：如果虚拟机和宿主机运行相同的操作系统或工作负载，那么有可能很多内存页是相同的，所以可以通过合并相同内存页来减少整体内存使用率。</p>
+<h1 id="虚拟机的磁盘">虚拟机的磁盘
+</h1><p>虚拟机的磁盘可以是块设备(裸设备)，也可以是文件(镜像文件)。如果是文件，那么会因为访问过程，从而比块设备的速度慢很多。<br>
+但是，虽然块设备提供了比文件更好的性能；可是文件提供更多的特性，例如快照、压缩、加密、可扩展、按需增长和多种预分配机制。</p>
+<h2 id="虚拟机的磁盘要考虑以下二个方面">虚拟机的磁盘要考虑以下二个方面：
+</h2><p>一、限制(保证)虚拟机可使用的物理磁盘的IO，可以使用QoS来实现，从而保证其IO操作的带宽和iops。<br>
+二、磁盘的数据缓存在宿主机哪里？是否使用宿主机的缓存？是否异步写？是倾向数据即时性?一致性?性能？是否要支持不同类型虚拟机迁移？</p>
+<h1 id="虚拟机的网络">虚拟机的网络
+</h1><p>虚拟机的网络都使用SR-IOV或MR-IOV，在vmware和openstack等实现中都使用了一系列组件。所以在虚拟机的网络，最重要的就是驱动，建议选择vhost_net这类运行在用户态的，因为其性能更好！</p>
+<h1 id="pci直通">PCI直通
+</h1><p>PCI直通允许虚拟机直接访问宿主机的PCI设备而不用通过虚拟化层，所以可以提高效率，接近了原生硬件的性能，但是这也限制了虚拟机的迁移特性，要慎重考虑！</p>
+<h1 id="容器">容器
+</h1><p>对于容器，Linux使用namespace和cgroup来创建容器，所以一般是通过cgroup来隔离CPU、内存、文件系统、磁盘IO和网络IO。<br>
+需要注意的是，在容器中，传统的性能工具可能无法正确显示容器的性能：top、uptime、mpstat、vmstat、free、iostat等这些命令都会显示与宿主机相关的性能，从而可能会产生误导。<br>
+而perf等命令可能无法在容器内运行，或者虽然运行，但也会包括其他容器的数据。</p>
+<h1 id="虚拟机和容器的性能监控">虚拟机和容器的性能监控
+</h1><p>prometheus可以监控各种系统和应用程序的运行状况和性能，例如硬件资源使用情况、操作系统指标、应用程序性能、数据库性能、网络设备状态、虚拟机、容器、微服务和云服务等。<br>
+结合支持多种数据源的Grafana，通过其自定义，实现实时展示数据、交互式图表、告警系统。</p>
+<h1 id="更多内容请参见本系列其他文章">更多内容请参见本系列其他文章
+</h1><p>&laquo;Linux性能诊断和调优系列(一)&ndash;30秒3条命令诊断Linux性能瓶颈&raquo;<br>
+&laquo;Linux性能诊断和调优系列(二)&ndash;CPU篇&raquo;<br>
+&laquo;Linux性能诊断和调优系列(三)&ndash;内存篇&raquo;<br>
+&laquo;Linux性能诊断和调优系列(四)&ndash;硬盘篇&raquo;<br>
+&laquo;Linux性能诊断和调优系列(五)&ndash;文件系统篇&raquo;<br>
+&laquo;Linux性能诊断和调优系列(六)&ndash;网络篇&raquo;<br>
+&laquo;Linux性能诊断和调优系列(七)&ndash;虚拟机及容器篇&raquo;<br>
+&laquo;Linux性能诊断和调优系列(八)&ndash;虚拟环境性能调优案例&raquo;<br>
+&laquo;Linux性能诊断和调优系列(九)&ndash;计算密集型应用性能调优案例&raquo;<br>
+&laquo;Linux性能诊断和调优系列(十)&ndash;存储密集型应用性能调优案例&raquo;<br>
+&laquo;Linux性能诊断和调优系列(十一)&ndash;大内存型应用性能调优案例&raquo;</p>
+<p>本文内容为原创，如需转载，请务必注明原文出处。<br>
+更多相关内容，欢迎访问我的个人网站：hongxu.wang。<br>
+我们还提供免费的技术支持，欢迎通过公众号与我们联系。</p>
+
+</section>
+
+
+    <footer class="article-meta article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/linux/">Linux</a>
+        
+            <a href="/tags/linux%E6%80%A7%E8%83%BD%E8%AF%8A%E6%96%AD%E5%92%8C%E8%B0%83%E4%BC%98%E7%B3%BB%E5%88%97/">Linux性能诊断和调优系列</a>
+        
+            <a href="/tags/%E8%99%9A%E6%8B%9F%E6%9C%BA%E5%8F%8A%E5%AE%B9%E5%99%A8/">虚拟机及容器</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+<aside>
+    <h2 class="section-title">Related content</h2>
+    <div class="subsection-list">
+        <div class="article-list--tile">
+            
+                
+<article class="">
+    <a href="/posts/linux-performance-diagnosis-and-tuning-series-6-network/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux性能诊断和调优系列(六)--网络篇</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/linux-performance-diagnosis-and-tuning-series-5-filesystem/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux性能诊断和调优系列(五)--文件系统篇</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/linux-performance-diagnosis-and-tuning-series-4-disk/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux性能诊断和调优系列(四) -- 硬盘篇</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/linux-performance-diagnosis-and-tuning-series-3-memory/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux性能诊断和调优系列(三) -- 内存篇</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/linux-performance-diagnosis-and-tuning-series-2-cpu/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux性能诊断和调优系列(二) -- CPU篇</h2>
+        </div>
+    </a>
+</article>
+            
+        </div>
+    </div>
+</aside>
+
+     
+    
+        
+        <div class="disqus-container">
+    
+</div>
+
+<style>
+    .disqus-container {
+        background-color: var(--card-background);
+        border-radius: var(--card-border-radius);
+        box-shadow: var(--shadow-l1);
+        padding: var(--card-padding);
+    }
+</style>
+
+<script>
+    window.addEventListener('onColorSchemeChange', (e) => {
+        if (typeof DISQUS == 'object') {
+            DISQUS.reset({
+                reload: true
+            });
+        }
+    })
+</script>
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+        2026 
+    </section>
+    
+    <section class="powerby">
+        Built with <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> <br />
+        Theme <b><a href="https://github.com/CaiJimmy/hugo-theme-stack" target="_blank" rel="noopener" data-version="4.0.0">Stack</a></b> designed by <a href="https://jimmycai.com" target="_blank" rel="noopener">Jimmy</a>
+    </section>
+</footer>
+
+
+    
+
+
+
+<script type="module">
+    import gallery from '\/ts\/gallery.js';
+
+    const articleContent = document.querySelector('.article-content');
+    const shouldLoad = articleContent && (articleContent.querySelectorAll('figure').length > 0 || articleContent.querySelectorAll('img.gallery-image').length > 0);
+    
+    if (shouldLoad) {
+        gallery(articleContent);
+
+        const PhotoSwipeLightbox = (await import("https:\/\/cdn.jsdelivr.net\/npm\/photoswipe@5.4.4\/dist\/photoswipe-lightbox.esm.min.js")).default;
+        const styleHref = "https:\/\/cdn.jsdelivr.net\/npm\/photoswipe@5.4.4\/dist\/photoswipe.css";
+
+        const styleTag = document.createElement('link');
+        styleTag.rel = 'stylesheet';
+        styleTag.href = styleHref;
+        document.head.appendChild(styleTag);
+
+        const lightbox = new PhotoSwipeLightbox({
+            gallerySelector: '.article-content',
+            childSelector: 'figure a.image-link',
+            pswpModule: () => import("https:\/\/cdn.jsdelivr.net\/npm\/photoswipe@5.4.4\/dist\/photoswipe.esm.min.js")
+        });
+        lightbox.init();
+    }
+</script>
+    
+
+            </main>
+        </div>
+        
+<script type="text/javascript" src="/ts/main.3ee067593935e3e391e923f2aa079d2b8173732410e5e89b88be5ea1545eeff7.js" defer></script>
+
+
+    </body>
+</html>

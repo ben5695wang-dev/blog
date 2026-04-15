@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+    <head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="1. 解决包管理相关性问题 1.1 包管理器是如何工作的？ a. 在包管理器以前，都是自己下载tar包。\nb. RPM保存了一个软件包的数据库并跟踪这些软件包的变化，而RPM是不检查包的依赖性的。\nc. YUM/DNF负责检查软件包的依赖性，他们使用自己的YUM/DNF数据库来检查依赖性，并将依赖性和软件包关联起来。YUM/DNF也会使用RPM数据库。\nd. DNF就是下一代的YUM，他解决了YUM的一些问题，并解决了YUM占用过多内存的问题。\n1.2 yum/dnf命令 yum list &ndash;show-duplicates httpd //查看软件包有多少个版本\nyum deplist httpd //检查依赖性\nyum provides /etc/httpd/conf/httpd.conf //显示哪个安装的包提供了这个文件\nyum downgrade httpd-2.2.3-22.el5 //降级(回退)到之前版本\n$ yum list --show-duplicates httpd //检查httpd有多少个版本 Loaded plugins: fastestmirror, product-id, search-disabled-repos, subscription-manager Loading mirror speeds from cached hostfile Available Packages httpd.x86_64 2.4.6-95.el7.centos base httpd.x86_64 2.4.6-97.el7.centos updates httpd.x86_64 2.4.6-97.el7.centos.1 updates httpd.x86_64 2.4.6-97.el7.centos.2 updates httpd.x86_64 2.4.6-97.el7.centos.4 updates httpd.x86_64 2.4.6-97.el7.centos.5 updates httpd.x86_64 2.4.6-98.el7.centos.6 updates httpd.x86_64 2.4.6-98.el7.centos.7 updates httpd.x86_64 2.4.6-99.el7.centos.1 updates $ yum install httpd //安装httpd $ yum deplist httpd //显示httpd依赖哪些包 $ yum provides /etc/httpd/conf/httpd.conf //显示哪个软件包或哪些软件包提供了这个文件 Loaded plugins: fastestmirror, product-id, search-disabled-repos, subscription-manager Loading mirror speeds from cached hostfile httpd-2.4.6-95.el7.centos.x86_64 : Apache HTTP Server Repo : base Matched from: Filename : /etc/httpd/conf/httpd.conf httpd-2.4.6-97.el7.centos.x86_64 : Apache HTTP Server Repo : updates Matched from: Filename : /etc/httpd/conf/httpd.conf httpd-2.4.6-97.el7.centos.1.x86_64 : Apache HTTP Server Repo : updates Matched from: Filename : /etc/httpd/conf/httpd.conf ...... 1.3 包依赖性相关命令 如果因为依赖性问题导致软件包不能安装或升级，使用以下命令：\ndnf deplist //检查依赖性\ndnf provides //显示哪个安装的包提供了这个文件\ndnf versionlock list //查看是否有锁定的软件包\n">
+<title>Linux诊断和故障排除系列(六) -- 修复软件包及管理器</title>
+
+
+<link rel="canonical" href="//localhost:1313/posts/linux-diagnosis-and-troubleshooting-series-6-fix-packages-and-package-manager/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap">
+
+
+<link rel="stylesheet" href="/scss/style.min.389e156f5e9bb13df5a924cfa99dfb9c39f3e01e68d9e146cd65bdae963be145.css"><meta property='og:title' content="Linux诊断和故障排除系列(六) -- 修复软件包及管理器">
+<meta property='og:description' content="1. 解决包管理相关性问题 1.1 包管理器是如何工作的？ a. 在包管理器以前，都是自己下载tar包。\nb. RPM保存了一个软件包的数据库并跟踪这些软件包的变化，而RPM是不检查包的依赖性的。\nc. YUM/DNF负责检查软件包的依赖性，他们使用自己的YUM/DNF数据库来检查依赖性，并将依赖性和软件包关联起来。YUM/DNF也会使用RPM数据库。\nd. DNF就是下一代的YUM，他解决了YUM的一些问题，并解决了YUM占用过多内存的问题。\n1.2 yum/dnf命令 yum list &ndash;show-duplicates httpd //查看软件包有多少个版本\nyum deplist httpd //检查依赖性\nyum provides /etc/httpd/conf/httpd.conf //显示哪个安装的包提供了这个文件\nyum downgrade httpd-2.2.3-22.el5 //降级(回退)到之前版本\n$ yum list --show-duplicates httpd //检查httpd有多少个版本 Loaded plugins: fastestmirror, product-id, search-disabled-repos, subscription-manager Loading mirror speeds from cached hostfile Available Packages httpd.x86_64 2.4.6-95.el7.centos base httpd.x86_64 2.4.6-97.el7.centos updates httpd.x86_64 2.4.6-97.el7.centos.1 updates httpd.x86_64 2.4.6-97.el7.centos.2 updates httpd.x86_64 2.4.6-97.el7.centos.4 updates httpd.x86_64 2.4.6-97.el7.centos.5 updates httpd.x86_64 2.4.6-98.el7.centos.6 updates httpd.x86_64 2.4.6-98.el7.centos.7 updates httpd.x86_64 2.4.6-99.el7.centos.1 updates $ yum install httpd //安装httpd $ yum deplist httpd //显示httpd依赖哪些包 $ yum provides /etc/httpd/conf/httpd.conf //显示哪个软件包或哪些软件包提供了这个文件 Loaded plugins: fastestmirror, product-id, search-disabled-repos, subscription-manager Loading mirror speeds from cached hostfile httpd-2.4.6-95.el7.centos.x86_64 : Apache HTTP Server Repo : base Matched from: Filename : /etc/httpd/conf/httpd.conf httpd-2.4.6-97.el7.centos.x86_64 : Apache HTTP Server Repo : updates Matched from: Filename : /etc/httpd/conf/httpd.conf httpd-2.4.6-97.el7.centos.1.x86_64 : Apache HTTP Server Repo : updates Matched from: Filename : /etc/httpd/conf/httpd.conf ...... 1.3 包依赖性相关命令 如果因为依赖性问题导致软件包不能安装或升级，使用以下命令：\ndnf deplist //检查依赖性\ndnf provides //显示哪个安装的包提供了这个文件\ndnf versionlock list //查看是否有锁定的软件包\n">
+<meta property='og:url' content='//localhost:1313/posts/linux-diagnosis-and-troubleshooting-series-6-fix-packages-and-package-manager/'>
+<meta property='og:site_name' content=''>
+<meta property='og:type' content='article'><meta property='article:section' content='Posts' /><meta property='article:tag' content='Linux' /><meta property='article:tag' content='Linux诊断和故障排除' /><meta property='article:tag' content='修复软件包及管理器' /><meta property='article:published_time' content='2024-07-06T20:02:29&#43;08:00'/><meta property='article:modified_time' content='2024-07-06T20:02:29&#43;08:00'/>
+<meta name="twitter:title" content="Linux诊断和故障排除系列(六) -- 修复软件包及管理器">
+<meta name="twitter:description" content="1. 解决包管理相关性问题 1.1 包管理器是如何工作的？ a. 在包管理器以前，都是自己下载tar包。\nb. RPM保存了一个软件包的数据库并跟踪这些软件包的变化，而RPM是不检查包的依赖性的。\nc. YUM/DNF负责检查软件包的依赖性，他们使用自己的YUM/DNF数据库来检查依赖性，并将依赖性和软件包关联起来。YUM/DNF也会使用RPM数据库。\nd. DNF就是下一代的YUM，他解决了YUM的一些问题，并解决了YUM占用过多内存的问题。\n1.2 yum/dnf命令 yum list &ndash;show-duplicates httpd //查看软件包有多少个版本\nyum deplist httpd //检查依赖性\nyum provides /etc/httpd/conf/httpd.conf //显示哪个安装的包提供了这个文件\nyum downgrade httpd-2.2.3-22.el5 //降级(回退)到之前版本\n$ yum list --show-duplicates httpd //检查httpd有多少个版本 Loaded plugins: fastestmirror, product-id, search-disabled-repos, subscription-manager Loading mirror speeds from cached hostfile Available Packages httpd.x86_64 2.4.6-95.el7.centos base httpd.x86_64 2.4.6-97.el7.centos updates httpd.x86_64 2.4.6-97.el7.centos.1 updates httpd.x86_64 2.4.6-97.el7.centos.2 updates httpd.x86_64 2.4.6-97.el7.centos.4 updates httpd.x86_64 2.4.6-97.el7.centos.5 updates httpd.x86_64 2.4.6-98.el7.centos.6 updates httpd.x86_64 2.4.6-98.el7.centos.7 updates httpd.x86_64 2.4.6-99.el7.centos.1 updates $ yum install httpd //安装httpd $ yum deplist httpd //显示httpd依赖哪些包 $ yum provides /etc/httpd/conf/httpd.conf //显示哪个软件包或哪些软件包提供了这个文件 Loaded plugins: fastestmirror, product-id, search-disabled-repos, subscription-manager Loading mirror speeds from cached hostfile httpd-2.4.6-95.el7.centos.x86_64 : Apache HTTP Server Repo : base Matched from: Filename : /etc/httpd/conf/httpd.conf httpd-2.4.6-97.el7.centos.x86_64 : Apache HTTP Server Repo : updates Matched from: Filename : /etc/httpd/conf/httpd.conf httpd-2.4.6-97.el7.centos.1.x86_64 : Apache HTTP Server Repo : updates Matched from: Filename : /etc/httpd/conf/httpd.conf ...... 1.3 包依赖性相关命令 如果因为依赖性问题导致软件包不能安装或升级，使用以下命令：\ndnf deplist //检查依赖性\ndnf provides //显示哪个安装的包提供了这个文件\ndnf versionlock list //查看是否有锁定的软件包\n">
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="Toggle Menu">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/"></a></h1>
+            <h2 class="site-description"></h2>
+        </div>
+    </header><ol class="menu" id="main-menu">
+        
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>Dark Mode</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            
+            
+            
+            <a href="/categories/%E6%8A%80%E6%9C%AF/" style="background-color: hsl(154, 60%, 84%); color: hsl(154, 60%, 15%);">
+                技术
+            </a>
+        
+            
+            
+            
+            <a href="/categories/linux/" style="background-color: hsl(237, 60%, 84%); color: hsl(237, 60%, 15%);">
+                Linux
+            </a>
+        
+            
+            
+            
+            <a href="/categories/linux%E8%AF%8A%E6%96%AD%E5%92%8C%E6%95%85%E9%9A%9C%E6%8E%92%E9%99%A4/" style="background-color: hsl(283, 60%, 84%); color: hsl(283, 60%, 15%);">
+                Linux诊断和故障排除
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/posts/linux-diagnosis-and-troubleshooting-series-6-fix-packages-and-package-manager/">Linux诊断和故障排除系列(六) -- 修复软件包及管理器</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    
+    
+    
+    <footer class="article-meta">
+        
+            <div class="inline-meta">
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                    <time class="article-time--published" datetime='2024-07-06T20:02:29&#43;08:00'>Saturday, July 6, 2024</time>
+                
+
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                    <time class="article-time--reading">
+                        3 minutes read
+                    </time>
+                
+            </div>
+        
+
+        
+
+        
+    </footer>
+    
+</div>
+
+</header>
+
+    
+
+    <section class="article-content">
+    
+    
+    <h1 id="1-解决包管理相关性问题">1. 解决包管理相关性问题
+</h1><h2 id="11-包管理器是如何工作的">1.1 包管理器是如何工作的？
+</h2><p>a. 在包管理器以前，都是自己下载tar包。<br>
+b. RPM保存了一个软件包的数据库并跟踪这些软件包的变化，而RPM是不检查包的依赖性的。<br>
+c. YUM/DNF负责检查软件包的依赖性，他们使用自己的YUM/DNF数据库来检查依赖性，并将依赖性和软件包关联起来。YUM/DNF也会使用RPM数据库。<br>
+d. DNF就是下一代的YUM，他解决了YUM的一些问题，并解决了YUM占用过多内存的问题。</p>
+<h2 id="12-yumdnf命令">1.2 yum/dnf命令
+</h2><p>yum list &ndash;show-duplicates httpd //查看软件包有多少个版本<br>
+yum deplist httpd //检查依赖性<br>
+yum provides /etc/httpd/conf/httpd.conf  //显示哪个安装的包提供了这个文件<br>
+yum downgrade httpd-2.2.3-22.el5 //降级(回退)到之前版本</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl">$ yum list --show-duplicates httpd          //检查httpd有多少个版本
+</span></span><span class="line"><span class="cl">Loaded plugins: fastestmirror, product-id, search-disabled-repos, subscription-manager
+</span></span><span class="line"><span class="cl">Loading mirror speeds from cached hostfile
+</span></span><span class="line"><span class="cl">Available Packages
+</span></span><span class="line"><span class="cl">httpd.x86_64                                                                                                  2.4.6-95.el7.centos                                                                                                     base   
+</span></span><span class="line"><span class="cl">httpd.x86_64                                                                                                  2.4.6-97.el7.centos                                                                                                     updates
+</span></span><span class="line"><span class="cl">httpd.x86_64                                                                                                  2.4.6-97.el7.centos.1                                                                                                   updates
+</span></span><span class="line"><span class="cl">httpd.x86_64                                                                                                  2.4.6-97.el7.centos.2                                                                                                   updates
+</span></span><span class="line"><span class="cl">httpd.x86_64                                                                                                  2.4.6-97.el7.centos.4                                                                                                   updates
+</span></span><span class="line"><span class="cl">httpd.x86_64                                                                                                  2.4.6-97.el7.centos.5                                                                                                   updates
+</span></span><span class="line"><span class="cl">httpd.x86_64                                                                                                  2.4.6-98.el7.centos.6                                                                                                   updates
+</span></span><span class="line"><span class="cl">httpd.x86_64                                                                                                  2.4.6-98.el7.centos.7                                                                                                   updates
+</span></span><span class="line"><span class="cl">httpd.x86_64                                                                                                  2.4.6-99.el7.centos.1                                                                                                   updates
+</span></span><span class="line"><span class="cl">$ yum install httpd             //安装httpd
+</span></span><span class="line"><span class="cl">$ yum deplist httpd               //显示httpd依赖哪些包
+</span></span><span class="line"><span class="cl">$ yum provides /etc/httpd/conf/httpd.conf               //显示哪个软件包或哪些软件包提供了这个文件
+</span></span><span class="line"><span class="cl">Loaded plugins: fastestmirror, product-id, search-disabled-repos, subscription-manager
+</span></span><span class="line"><span class="cl">Loading mirror speeds from cached hostfile
+</span></span><span class="line"><span class="cl">httpd-2.4.6-95.el7.centos.x86_64 : Apache HTTP Server
+</span></span><span class="line"><span class="cl">Repo        : base
+</span></span><span class="line"><span class="cl">Matched from:
+</span></span><span class="line"><span class="cl">Filename    : /etc/httpd/conf/httpd.conf
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">httpd-2.4.6-97.el7.centos.x86_64 : Apache HTTP Server
+</span></span><span class="line"><span class="cl">Repo        : updates
+</span></span><span class="line"><span class="cl">Matched from:
+</span></span><span class="line"><span class="cl">Filename    : /etc/httpd/conf/httpd.conf
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">httpd-2.4.6-97.el7.centos.1.x86_64 : Apache HTTP Server
+</span></span><span class="line"><span class="cl">Repo        : updates
+</span></span><span class="line"><span class="cl">Matched from:
+</span></span><span class="line"><span class="cl">Filename    : /etc/httpd/conf/httpd.conf
+</span></span><span class="line"><span class="cl">......
+</span></span></code></pre></div><h2 id="13-包依赖性相关命令">1.3 包依赖性相关命令
+</h2><p>如果因为依赖性问题导致软件包不能安装或升级，使用以下命令：<br>
+dnf deplist //检查依赖性<br>
+dnf provides //显示哪个安装的包提供了这个文件<br>
+dnf versionlock list //查看是否有锁定的软件包</p>
+<h2 id="14-软件版本锁定">1.4 软件版本锁定
+</h2><p>版本锁定并不是YUM/DNF自带的，要安装第三方软件包，从而让我们把软件包锁定在一个指定版本<br>
+dnf-plugin-versionlock<br>
+dnf-plugin-versionlock list //显示锁定的软件包<br>
+dnf-plugin-versionlock add //添加一个软件包，从而锁定<br>
+dnf-plugin-versionlock delete //删除一个软件包，从而不再锁定<br>
+dnf-plugin-versionlock clear //删除所有软件包，从而不再锁定任何软件包</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl">$ dnf install dnf-plugin-versionlock		//安装
+</span></span><span class="line"><span class="cl">$ dnf versionlock list		//显示锁定的软件包
+</span></span><span class="line"><span class="cl">$ dnf versionlock add httpd		//添加httpd软件包，从而锁定，并在当前版本号上
+</span></span><span class="line"><span class="cl">$ dnf versionlock list		//显示锁定的软件包
+</span></span><span class="line"><span class="cl">$ dnf versionlock delete httpd		//删除锁定的httpd软件包
+</span></span></code></pre></div><h1 id="2-恢复损坏的rpm数据库">2. 恢复损坏的RPM数据库
+</h1><p>当运行RPM等命令失败时，可能是RPM DB出问题了，解决步骤如下：<br>
+第一步：使用lsof来检查所有与RPM相关的被打开中的文件，并清除与RPM相关的锁</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl">lsof <span class="p">|</span> grep /var/lib/rpm
+</span></span><span class="line"><span class="cl">rm -rf /var/lib/rpm/__db*
+</span></span></code></pre></div><p>第二步：使用/usr/lib/rpm/rpmdb验证RPM DB是否损坏</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl">/usr/lib/rpm/rpmdb_verify /var/lib/rpm/Packages
+</span></span></code></pre></div><p>第三步：备份RPM DB或整个RPM目录</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl">mv /var/lib/rpm/Packages /var/lib/rpm/Packages.bak
+</span></span></code></pre></div><p>第四步：Dump and Load<br>
+使用/usr/lib/rpm/rpmdb_dump来转储备份文件，然后使用/usr/lib/rpm/rpmdb_load来加载一个新的</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl">/usr/lib/rpm/rpmdb_dump /var/lib/rpm/Packages.bak <span class="p">|</span> /usr/lib/rpm/rpmdb_load /var/lib/rpm/Packages
+</span></span></code></pre></div><p>第五步：再次验证<br>
+使用/usr/lib/rpm/rpmdb验证RPM DB是否损坏，这次验证的是新的包文件</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl">/usr/lib/rpm/rpmdb_verify /var/lib/rpm/Packages
+</span></span></code></pre></div><p>第六步：重建DB<br>
+使用rpm -v &ndash;rebuilddb 重建DB</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl">rpm -vv --rebuilddb
+</span></span></code></pre></div><h2 id="21-例子">2.1 例子
+</h2><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl">$ <span class="nb">cd</span> /var/lib/rpm					//这个目录下的Packages文件就是rpm db所在
+</span></span><span class="line"><span class="cl">$ dnf install hexedit -y
+</span></span><span class="line"><span class="cl">$ hexedit Packages 				//随机修改一些数字，来破坏Packages
+</span></span><span class="line"><span class="cl">$ lsof <span class="p">|</span> grep /var/lib/rpm		//查看是否有和/var/lib/rpm/Packages相关的被打开的文件，如果有，就用kill -9杀其进程
+</span></span><span class="line"><span class="cl">$ <span class="nb">kill</span> -9 4553						//用kill -9杀其进程
+</span></span><span class="line"><span class="cl">$ lsof <span class="p">|</span> grep /var/lib/rpm		//再次确认已经没有和/var/lib/rpm/Packages相关的被打开的文件
+</span></span><span class="line"><span class="cl">$ ls /var/lib/rpm					//查看这个目录下是否有 __db.001 这样的文件，也就是锁
+</span></span><span class="line"><span class="cl">$ rm -rf /var/lib/rpm/__db*						//删除__db.001 这样的文件，也就是删除锁
+</span></span><span class="line"><span class="cl">$ ls /var/lib/rpm					//再次确认这个目录下没有 __db.001 这样的文件，也就是锁
+</span></span><span class="line"><span class="cl">$ ls /usr/lib/rpm					//这里面都是与RPM相关的可以使用的工具
+</span></span><span class="line"><span class="cl">macros  macros.d  platform  rpm2cpio.sh  rpm.daily  rpmdb_dump  rpmdb_load  rpmdb_loadcvt  rpmdb_recover  rpmdb_stat  rpmdb_upgrade  rpmdb_verify  rpm.log  rpmpopt-4.11.3  rpmrc  rpm.supp  tgpg			//最重要的就是rpmdb_verify，rpmdb_dump，rpmdb_load 
+</span></span><span class="line"><span class="cl">$ /usr/lib/rpm/rpmdb_verify /var/lib/rpm/Packages       //全路径，验证PRM DB，如果损坏会报Verfifcation of Packages failed
+</span></span><span class="line"><span class="cl">$ mv /var/lib/rpm/Packages /var/lib/rpm/Packages.bak		//备份RPM DB
+</span></span><span class="line"><span class="cl">$ /usr/lib/rpm/rpmdb_dump /var/lib/rpm/Packages.bak <span class="p">|</span> /usr/lib/rpm/rpmdb_load /var/lib/rpm/Packages       //使用备份的Packages.bak，用rpmdb_dump和rpmdb_load创建一个新的RPM DB文件，先用rpmdb_dump从备份的RPM DB文件中转储，然后用rpmdb_load恢复一个新的RPM DB 文件
+</span></span><span class="line"><span class="cl">$ /usr/lib/rpm/rpmdb_verify /var/lib/rpm/Packages       //再次验证PRM DB，一切正常
+</span></span><span class="line"><span class="cl">$ rpm -vv --rebuilddb				//重建RPM DB
+</span></span></code></pre></div><h1 id="3-追踪rpm文件变化并恢复更改的rpm文件">3. 追踪rpm文件变化并恢复更改的rpm文件
+</h1><h2 id="31-追踪rpm文件变化">3.1. 追踪rpm文件变化
+</h2><p>rpm -Va //验证所有rpm(安装的)相关文件<br>
+输出的第一列中的字母代表：<br>
+S: Size,这个文件的大小被修改了<br>
+M: Mode,这个文件的权限或类型被修改了<br>
+5: MD5,这个文件的内容被修改了<br>
+rpm不会跟踪配置文件的其内容变化！！！因为后面多个小c，代表这是一个配置文件<br>
+D: 设备的主/次号不匹配<br>
+L: Symlinks,这个文件的Symlinks被修改了<br>
+U: User,这个文件的所有者被修改了<br>
+G: Group,这个文件的所属组被修改了<br>
+T: Modification time,这个文件的修改时间被修改了<br>
+rpm -V //验证指定的包及其相关文件<br>
+rpm -qf //确定一个文件是哪个rpm包提供的</p>
+<h2 id="311-例子">3.1.1 例子
+</h2><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl">$ dnf install httpd
+</span></span><span class="line"><span class="cl">$ dnf reinstall htppd		//重新安装一次，以便 确认任何改动都被重置了
+</span></span><span class="line"><span class="cl">$ <span class="nb">cd</span> /etc/httpd/conf
+</span></span><span class="line"><span class="cl">$ ll				//查看权限和属组
+</span></span><span class="line"><span class="cl">$ chmod <span class="m">000</span> httpd.conf			//破坏
+</span></span><span class="line"><span class="cl">$ chown cloud_user:cloud_user httpd.conf		//破坏
+</span></span><span class="line"><span class="cl">$ vi /usr/lib/systemd/system/httpd.service		//对应的服务的文件
+</span></span><span class="line"><span class="cl">Hello												//随机添加内容，破坏
+</span></span><span class="line"><span class="cl">//现在启动httpd将会失败！
+</span></span><span class="line"><span class="cl">$ rpm -Va
+</span></span><span class="line"><span class="cl">S.5....T.  c /etc/security/limits.conf
+</span></span><span class="line"><span class="cl">......
+</span></span><span class="line"><span class="cl">$ rpm -V httpd
+</span></span><span class="line"><span class="cl">.M...UG..		c /etc/httpd/conf/httpd.conf                    //这个文件的权限、所有者和属组都被修改了。！！！这是配置文件，所以rpm不会跟踪其内容变化！！！后面多个小c，代表这是一个配置文件
+</span></span><span class="line"><span class="cl">S.5....T.			/usr/lib/systemd/system/httpd.service       //这个文件的大小、内容和修改时间都变了
+</span></span></code></pre></div><h2 id="32-恢复更改的rpm文件">3.2 恢复更改的rpm文件
+</h2><p>rpm &ndash;setperms //恢复权限<br>
+rpm &ndash;setguids //恢复所有者和属组<br>
+如果以上这两个命令不行，就只能用yum/dnf重新安装了<br>
+dnf reinstall //重新安装，但这样做不会改变现在的配置文件的内容，只会确保其修复的内容</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl">$ rpm -V httpd
+</span></span><span class="line"><span class="cl">.M...UG..		c /etc/httpd/conf/httpd.conf                    //这个文件的权限、所有者和属组都被修改了。！！！这是配置文件，所以rpm不会跟踪其内容变化！！！后面多个小c，代表这是一个配置文件
+</span></span><span class="line"><span class="cl">S.5....T.			/usr/lib/systemd/system/httpd.service       //这个文件的大小、内容和修改时间都变了
+</span></span><span class="line"><span class="cl">$ rpm --setperms httpd 		                                    //恢复权限
+</span></span><span class="line"><span class="cl">$ rpm -V httpd
+</span></span><span class="line"><span class="cl">.....UG..		c /etc/httpd/conf/httpd.conf                    //没有M了其内容变化！！！后面多个小c，代表这是一个配置文件
+</span></span><span class="line"><span class="cl">S.5....T.			/usr/lib/systemd/system/httpd.service       //这个文件的大小、内容和修改时间都变了
+</span></span><span class="line"><span class="cl">$ rpm --setguids httpd	                                        //恢复所有者和属组
+</span></span><span class="line"><span class="cl">$ rpm -V httpd
+</span></span><span class="line"><span class="cl">S.5....T.			/usr/lib/systemd/system/httpd.service       //这个文件的大小、内容和修改时间都变了
+</span></span><span class="line"><span class="cl">........P			/usr/sbin/suexec                            //这条可以忽略
+</span></span><span class="line"><span class="cl">$ dnf reinstall httpd-y                                         //只好重新安装
+</span></span><span class="line"><span class="cl">$ rpm -V httpd                                                  //输出为空，代表正常了！
+</span></span></code></pre></div>
+</section>
+
+
+    <footer class="article-meta article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/linux/">Linux</a>
+        
+            <a href="/tags/linux%E8%AF%8A%E6%96%AD%E5%92%8C%E6%95%85%E9%9A%9C%E6%8E%92%E9%99%A4/">Linux诊断和故障排除</a>
+        
+            <a href="/tags/%E4%BF%AE%E5%A4%8D%E8%BD%AF%E4%BB%B6%E5%8C%85%E5%8F%8A%E7%AE%A1%E7%90%86%E5%99%A8/">修复软件包及管理器</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+<aside>
+    <h2 class="section-title">Related content</h2>
+    <div class="subsection-list">
+        <div class="article-list--tile">
+            
+                
+<article class="">
+    <a href="/posts/linux-diagnosis-and-troubleshooting-series-5-fix-iscsi/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux诊断和故障排除系列(五) -- 修复iSCSI</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/linux-diagnosis-and-troubleshooting-series-4-fix-filesystem/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux诊断和故障排除系列(四) -- 修复文件系统</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/linux-diagnosis-and-troubleshooting-series-3-reset-root-password/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux诊断和故障排除系列(三) -- 重置root密码</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/linux-diagnosis-and-troubleshooting-series-2-fix-kernel-service/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux诊断和故障排除系列(二) -- 修复内核服务</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/linux-diagnosis-and-troubleshooting-series-1-fix-boot-partition/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux诊断和故障排除系列(一) -- 修复启动分区</h2>
+        </div>
+    </a>
+</article>
+            
+        </div>
+    </div>
+</aside>
+
+     
+    
+        
+        <div class="disqus-container">
+    
+</div>
+
+<style>
+    .disqus-container {
+        background-color: var(--card-background);
+        border-radius: var(--card-border-radius);
+        box-shadow: var(--shadow-l1);
+        padding: var(--card-padding);
+    }
+</style>
+
+<script>
+    window.addEventListener('onColorSchemeChange', (e) => {
+        if (typeof DISQUS == 'object') {
+            DISQUS.reset({
+                reload: true
+            });
+        }
+    })
+</script>
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+        2026 
+    </section>
+    
+    <section class="powerby">
+        Built with <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> <br />
+        Theme <b><a href="https://github.com/CaiJimmy/hugo-theme-stack" target="_blank" rel="noopener" data-version="4.0.0">Stack</a></b> designed by <a href="https://jimmycai.com" target="_blank" rel="noopener">Jimmy</a>
+    </section>
+</footer>
+
+
+    
+
+
+
+<script type="module">
+    import gallery from '\/ts\/gallery.js';
+
+    const articleContent = document.querySelector('.article-content');
+    const shouldLoad = articleContent && (articleContent.querySelectorAll('figure').length > 0 || articleContent.querySelectorAll('img.gallery-image').length > 0);
+    
+    if (shouldLoad) {
+        gallery(articleContent);
+
+        const PhotoSwipeLightbox = (await import("https:\/\/cdn.jsdelivr.net\/npm\/photoswipe@5.4.4\/dist\/photoswipe-lightbox.esm.min.js")).default;
+        const styleHref = "https:\/\/cdn.jsdelivr.net\/npm\/photoswipe@5.4.4\/dist\/photoswipe.css";
+
+        const styleTag = document.createElement('link');
+        styleTag.rel = 'stylesheet';
+        styleTag.href = styleHref;
+        document.head.appendChild(styleTag);
+
+        const lightbox = new PhotoSwipeLightbox({
+            gallerySelector: '.article-content',
+            childSelector: 'figure a.image-link',
+            pswpModule: () => import("https:\/\/cdn.jsdelivr.net\/npm\/photoswipe@5.4.4\/dist\/photoswipe.esm.min.js")
+        });
+        lightbox.init();
+    }
+</script>
+    
+
+            </main>
+        </div>
+        
+<script type="text/javascript" src="/ts/main.3ee067593935e3e391e923f2aa079d2b8173732410e5e89b88be5ea1545eeff7.js" defer></script>
+
+
+    </body>
+</html>

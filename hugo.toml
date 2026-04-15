@@ -1,1 +1,18 @@
 theme = 'hugo-theme-stack'
+[markup.goldmark.renderer]
+  hardWraps = true
+[markup.highlight]
+  codeFences = true
+  guessSyntax = true
+  style = "github"          # 推荐浅色风格：github、xcode、monokailight
+  # style = "dracula"       # 深色好看风格
+  noClasses = false
+[article]
+  toc = true          # 启用文章目录
+
+[markup.tableOfContents]
+  startLevel = 1      # 改成 1，让一级标题也显示（默认是 2）
+  endLevel = 4
+  ordered = true
+[params]
+  showSidebar = true

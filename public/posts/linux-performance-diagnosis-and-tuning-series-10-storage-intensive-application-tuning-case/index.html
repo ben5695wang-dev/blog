@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+    <head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="Linux性能诊断和调优系列(十)&ndash;存储密集型应用性能调优案例\n目录 存储密集型常见的场景\n操作系统级磁盘参数\nSCSI硬盘参数建议\nSAS硬盘参数建议\nnvme硬盘参数建议\n为文件系统创建外部日志\n存储密集型常见的场景 数据库系统：关系型数据库（如Oracle、MySQL）和非关系型数据库（如MongoDB）。\n大数据分析：如Hadoop和Spark等框架用于处理和分析大规模数据集。\n内容分发网络（CDN）：用于快速分发大量静态内容，如视频、图片等。\n备份和归档系统：用于数据长期存储和灾难恢复。\n邮件服务器/文件服务器：存储大量数据和附件。\n所以对于存储密集型应用案例，我们重点关注磁盘方面的调整。\n操作系统级磁盘参数 readahead，这个参数用于设置磁盘的预读的字节数，也就是操作系统会预先读取的数据字节，一般设置为4096字节。\napm，这个参数用于设置磁盘的高级电源管理，值范围通常是从1到255，数值越高，硬盘进入低功耗状态的倾向越大。1表示APM功能被禁用，即硬盘不会根据电源管理策略进入低功耗状态，硬盘始终保持全速运行。\nspindown，这个参数用于设置磁盘在多长时间内没有读写操作后，磁盘驱动器将减速到停止旋转，以节省能源。数值表示分钟。例如6代表如果磁盘在6分钟内没有任何读写请求，它将开始减速。\nSCSI硬盘参数建议 对于SCSI硬盘，可以设置alpm，这个参数用于设置磁盘自动低功耗管理，即允许 SCSI 主机适配器在系统空闲时自动将连接的存储设备置于低功耗状态。建议值为max_performance，让硬盘以最高性能运行，不进入低功耗状态，以提供最快的响应时间。\nSAS硬盘参数建议 对于SCSI硬盘，可以设置elevator，这个参数用于指定I/O请求调度算法。建议值为mq-deadline，这种策略可以提供更好的I/O性能和响应时间，特别是在多核处理器环境下。\nnvme硬盘参数建议 对于nvme硬盘，可以设置isolate_managed_irq，这个参数用于指定用于指定是否将管理中断（IRQ）与设备驱动程序隔离。建议值为Y，表示启用此功能，这可以减少中断处理的延迟，提高I/O性能。\n为文件系统创建外部日志 可以将日志放在文件系统外部，从而增加文件系统性能。\n以下命令是创建xfs文件系统，inode为512字节，块大小为4096，log设备在vdc1上，文件系统在vdb1上，从而实现了数据和日志分离。\n$ mkfs.xfs -i size=512 -b size=4096 -l logdev/dev/vdc1 /dev/vdb1\n更多内容请参见本系列其他文章 &laquo;Linux性能诊断和调优系列(一)&ndash;30秒3条命令诊断Linux性能瓶颈&raquo;\n&laquo;Linux性能诊断和调优系列(二)&ndash;CPU篇&raquo;\n&laquo;Linux性能诊断和调优系列(三)&ndash;内存篇&raquo;\n&laquo;Linux性能诊断和调优系列(四)&ndash;硬盘篇&raquo;\n&laquo;Linux性能诊断和调优系列(五)&ndash;文件系统篇&raquo;\n&laquo;Linux性能诊断和调优系列(六)&ndash;网络篇&raquo;\n&laquo;Linux性能诊断和调优系列(七)&ndash;虚拟机及容器篇&raquo;\n&laquo;Linux性能诊断和调优系列(八)&ndash;虚拟环境性能调优案例&raquo;\n&laquo;Linux性能诊断和调优系列(九)&ndash;计算密集型应用性能调优案例&raquo;\n&laquo;Linux性能诊断和调优系列(十)&ndash;存储密集型应用性能调优案例&raquo;\n&laquo;Linux性能诊断和调优系列(十一)&ndash;大内存型应用性能调优案例&raquo;\n本文内容为原创，如需转载，请务必注明原文出处。\n更多相关内容，欢迎访问我的个人网站：hongxu.wang。\n我们还提供免费的技术支持，欢迎通过公众号与我们联系。\n">
+<title>Linux性能诊断和调优系列(十)--存储密集型应用性能调优案例</title>
+
+
+<link rel="canonical" href="//localhost:1313/posts/linux-performance-diagnosis-and-tuning-series-10-storage-intensive-application-tuning-case/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap">
+
+
+<link rel="stylesheet" href="/scss/style.min.389e156f5e9bb13df5a924cfa99dfb9c39f3e01e68d9e146cd65bdae963be145.css"><meta property='og:title' content="Linux性能诊断和调优系列(十)--存储密集型应用性能调优案例">
+<meta property='og:description' content="Linux性能诊断和调优系列(十)&ndash;存储密集型应用性能调优案例\n目录 存储密集型常见的场景\n操作系统级磁盘参数\nSCSI硬盘参数建议\nSAS硬盘参数建议\nnvme硬盘参数建议\n为文件系统创建外部日志\n存储密集型常见的场景 数据库系统：关系型数据库（如Oracle、MySQL）和非关系型数据库（如MongoDB）。\n大数据分析：如Hadoop和Spark等框架用于处理和分析大规模数据集。\n内容分发网络（CDN）：用于快速分发大量静态内容，如视频、图片等。\n备份和归档系统：用于数据长期存储和灾难恢复。\n邮件服务器/文件服务器：存储大量数据和附件。\n所以对于存储密集型应用案例，我们重点关注磁盘方面的调整。\n操作系统级磁盘参数 readahead，这个参数用于设置磁盘的预读的字节数，也就是操作系统会预先读取的数据字节，一般设置为4096字节。\napm，这个参数用于设置磁盘的高级电源管理，值范围通常是从1到255，数值越高，硬盘进入低功耗状态的倾向越大。1表示APM功能被禁用，即硬盘不会根据电源管理策略进入低功耗状态，硬盘始终保持全速运行。\nspindown，这个参数用于设置磁盘在多长时间内没有读写操作后，磁盘驱动器将减速到停止旋转，以节省能源。数值表示分钟。例如6代表如果磁盘在6分钟内没有任何读写请求，它将开始减速。\nSCSI硬盘参数建议 对于SCSI硬盘，可以设置alpm，这个参数用于设置磁盘自动低功耗管理，即允许 SCSI 主机适配器在系统空闲时自动将连接的存储设备置于低功耗状态。建议值为max_performance，让硬盘以最高性能运行，不进入低功耗状态，以提供最快的响应时间。\nSAS硬盘参数建议 对于SCSI硬盘，可以设置elevator，这个参数用于指定I/O请求调度算法。建议值为mq-deadline，这种策略可以提供更好的I/O性能和响应时间，特别是在多核处理器环境下。\nnvme硬盘参数建议 对于nvme硬盘，可以设置isolate_managed_irq，这个参数用于指定用于指定是否将管理中断（IRQ）与设备驱动程序隔离。建议值为Y，表示启用此功能，这可以减少中断处理的延迟，提高I/O性能。\n为文件系统创建外部日志 可以将日志放在文件系统外部，从而增加文件系统性能。\n以下命令是创建xfs文件系统，inode为512字节，块大小为4096，log设备在vdc1上，文件系统在vdb1上，从而实现了数据和日志分离。\n$ mkfs.xfs -i size=512 -b size=4096 -l logdev/dev/vdc1 /dev/vdb1\n更多内容请参见本系列其他文章 &laquo;Linux性能诊断和调优系列(一)&ndash;30秒3条命令诊断Linux性能瓶颈&raquo;\n&laquo;Linux性能诊断和调优系列(二)&ndash;CPU篇&raquo;\n&laquo;Linux性能诊断和调优系列(三)&ndash;内存篇&raquo;\n&laquo;Linux性能诊断和调优系列(四)&ndash;硬盘篇&raquo;\n&laquo;Linux性能诊断和调优系列(五)&ndash;文件系统篇&raquo;\n&laquo;Linux性能诊断和调优系列(六)&ndash;网络篇&raquo;\n&laquo;Linux性能诊断和调优系列(七)&ndash;虚拟机及容器篇&raquo;\n&laquo;Linux性能诊断和调优系列(八)&ndash;虚拟环境性能调优案例&raquo;\n&laquo;Linux性能诊断和调优系列(九)&ndash;计算密集型应用性能调优案例&raquo;\n&laquo;Linux性能诊断和调优系列(十)&ndash;存储密集型应用性能调优案例&raquo;\n&laquo;Linux性能诊断和调优系列(十一)&ndash;大内存型应用性能调优案例&raquo;\n本文内容为原创，如需转载，请务必注明原文出处。\n更多相关内容，欢迎访问我的个人网站：hongxu.wang。\n我们还提供免费的技术支持，欢迎通过公众号与我们联系。\n">
+<meta property='og:url' content='//localhost:1313/posts/linux-performance-diagnosis-and-tuning-series-10-storage-intensive-application-tuning-case/'>
+<meta property='og:site_name' content=''>
+<meta property='og:type' content='article'><meta property='article:section' content='Posts' /><meta property='article:tag' content='Linux' /><meta property='article:tag' content='Linux性能诊断和调优系列' /><meta property='article:tag' content='存储密集型应用性能调优案例' /><meta property='article:published_time' content='2024-06-21T19:31:55&#43;08:00'/><meta property='article:modified_time' content='2024-06-21T19:31:55&#43;08:00'/>
+<meta name="twitter:title" content="Linux性能诊断和调优系列(十)--存储密集型应用性能调优案例">
+<meta name="twitter:description" content="Linux性能诊断和调优系列(十)&ndash;存储密集型应用性能调优案例\n目录 存储密集型常见的场景\n操作系统级磁盘参数\nSCSI硬盘参数建议\nSAS硬盘参数建议\nnvme硬盘参数建议\n为文件系统创建外部日志\n存储密集型常见的场景 数据库系统：关系型数据库（如Oracle、MySQL）和非关系型数据库（如MongoDB）。\n大数据分析：如Hadoop和Spark等框架用于处理和分析大规模数据集。\n内容分发网络（CDN）：用于快速分发大量静态内容，如视频、图片等。\n备份和归档系统：用于数据长期存储和灾难恢复。\n邮件服务器/文件服务器：存储大量数据和附件。\n所以对于存储密集型应用案例，我们重点关注磁盘方面的调整。\n操作系统级磁盘参数 readahead，这个参数用于设置磁盘的预读的字节数，也就是操作系统会预先读取的数据字节，一般设置为4096字节。\napm，这个参数用于设置磁盘的高级电源管理，值范围通常是从1到255，数值越高，硬盘进入低功耗状态的倾向越大。1表示APM功能被禁用，即硬盘不会根据电源管理策略进入低功耗状态，硬盘始终保持全速运行。\nspindown，这个参数用于设置磁盘在多长时间内没有读写操作后，磁盘驱动器将减速到停止旋转，以节省能源。数值表示分钟。例如6代表如果磁盘在6分钟内没有任何读写请求，它将开始减速。\nSCSI硬盘参数建议 对于SCSI硬盘，可以设置alpm，这个参数用于设置磁盘自动低功耗管理，即允许 SCSI 主机适配器在系统空闲时自动将连接的存储设备置于低功耗状态。建议值为max_performance，让硬盘以最高性能运行，不进入低功耗状态，以提供最快的响应时间。\nSAS硬盘参数建议 对于SCSI硬盘，可以设置elevator，这个参数用于指定I/O请求调度算法。建议值为mq-deadline，这种策略可以提供更好的I/O性能和响应时间，特别是在多核处理器环境下。\nnvme硬盘参数建议 对于nvme硬盘，可以设置isolate_managed_irq，这个参数用于指定用于指定是否将管理中断（IRQ）与设备驱动程序隔离。建议值为Y，表示启用此功能，这可以减少中断处理的延迟，提高I/O性能。\n为文件系统创建外部日志 可以将日志放在文件系统外部，从而增加文件系统性能。\n以下命令是创建xfs文件系统，inode为512字节，块大小为4096，log设备在vdc1上，文件系统在vdb1上，从而实现了数据和日志分离。\n$ mkfs.xfs -i size=512 -b size=4096 -l logdev/dev/vdc1 /dev/vdb1\n更多内容请参见本系列其他文章 &laquo;Linux性能诊断和调优系列(一)&ndash;30秒3条命令诊断Linux性能瓶颈&raquo;\n&laquo;Linux性能诊断和调优系列(二)&ndash;CPU篇&raquo;\n&laquo;Linux性能诊断和调优系列(三)&ndash;内存篇&raquo;\n&laquo;Linux性能诊断和调优系列(四)&ndash;硬盘篇&raquo;\n&laquo;Linux性能诊断和调优系列(五)&ndash;文件系统篇&raquo;\n&laquo;Linux性能诊断和调优系列(六)&ndash;网络篇&raquo;\n&laquo;Linux性能诊断和调优系列(七)&ndash;虚拟机及容器篇&raquo;\n&laquo;Linux性能诊断和调优系列(八)&ndash;虚拟环境性能调优案例&raquo;\n&laquo;Linux性能诊断和调优系列(九)&ndash;计算密集型应用性能调优案例&raquo;\n&laquo;Linux性能诊断和调优系列(十)&ndash;存储密集型应用性能调优案例&raquo;\n&laquo;Linux性能诊断和调优系列(十一)&ndash;大内存型应用性能调优案例&raquo;\n本文内容为原创，如需转载，请务必注明原文出处。\n更多相关内容，欢迎访问我的个人网站：hongxu.wang。\n我们还提供免费的技术支持，欢迎通过公众号与我们联系。\n">
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="Toggle Menu">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/"></a></h1>
+            <h2 class="site-description"></h2>
+        </div>
+    </header><ol class="menu" id="main-menu">
+        
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>Dark Mode</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            
+            
+            
+            <a href="/categories/%E6%8A%80%E6%9C%AF/" style="background-color: hsl(154, 60%, 84%); color: hsl(154, 60%, 15%);">
+                技术
+            </a>
+        
+            
+            
+            
+            <a href="/categories/linux/" style="background-color: hsl(237, 60%, 84%); color: hsl(237, 60%, 15%);">
+                Linux
+            </a>
+        
+            
+            
+            
+            <a href="/categories/linux%E6%80%A7%E8%83%BD%E8%AF%8A%E6%96%AD%E5%92%8C%E8%B0%83%E4%BC%98%E7%B3%BB%E5%88%97/" style="background-color: hsl(341, 60%, 84%); color: hsl(341, 60%, 15%);">
+                Linux性能诊断和调优系列
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/posts/linux-performance-diagnosis-and-tuning-series-10-storage-intensive-application-tuning-case/">Linux性能诊断和调优系列(十)--存储密集型应用性能调优案例</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    
+    
+    
+    <footer class="article-meta">
+        
+            <div class="inline-meta">
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                    <time class="article-time--published" datetime='2024-06-21T19:31:55&#43;08:00'>Friday, June 21, 2024</time>
+                
+
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                    <time class="article-time--reading">
+                        1 minute read
+                    </time>
+                
+            </div>
+        
+
+        
+
+        
+    </footer>
+    
+</div>
+
+</header>
+
+    
+
+    <section class="article-content">
+    
+    
+    <p>Linux性能诊断和调优系列(十)&ndash;存储密集型应用性能调优案例<br>
+<img class="gallery-image" data-flex-basis="426px" data-flex-grow="177" height="349" loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px" src="/posts/linux-performance-diagnosis-and-tuning-series-10-storage-intensive-application-tuning-case/Linux_performance_10.png" width="620"></p>
+<h1 id="目录">目录
+</h1><p>存储密集型常见的场景<br>
+操作系统级磁盘参数<br>
+SCSI硬盘参数建议<br>
+SAS硬盘参数建议<br>
+nvme硬盘参数建议<br>
+为文件系统创建外部日志</p>
+<h1 id="存储密集型常见的场景">存储密集型常见的场景
+</h1><p>数据库系统：关系型数据库（如Oracle、MySQL）和非关系型数据库（如MongoDB）。<br>
+大数据分析：如Hadoop和Spark等框架用于处理和分析大规模数据集。<br>
+内容分发网络（CDN）：用于快速分发大量静态内容，如视频、图片等。<br>
+备份和归档系统：用于数据长期存储和灾难恢复。<br>
+邮件服务器/文件服务器：存储大量数据和附件。<br>
+所以对于存储密集型应用案例，我们重点关注磁盘方面的调整。</p>
+<h1 id="操作系统级磁盘参数">操作系统级磁盘参数
+</h1><p>readahead，这个参数用于设置磁盘的预读的字节数，也就是操作系统会预先读取的数据字节，一般设置为4096字节。<br>
+apm，这个参数用于设置磁盘的高级电源管理，值范围通常是从1到255，数值越高，硬盘进入低功耗状态的倾向越大。1表示APM功能被禁用，即硬盘不会根据电源管理策略进入低功耗状态，硬盘始终保持全速运行。<br>
+spindown，这个参数用于设置磁盘在多长时间内没有读写操作后，磁盘驱动器将减速到停止旋转，以节省能源。数值表示分钟。例如6代表如果磁盘在6分钟内没有任何读写请求，它将开始减速。</p>
+<h1 id="scsi硬盘参数建议">SCSI硬盘参数建议
+</h1><p>对于SCSI硬盘，可以设置alpm，这个参数用于设置磁盘自动低功耗管理，即允许 SCSI 主机适配器在系统空闲时自动将连接的存储设备置于低功耗状态。建议值为max_performance，让硬盘以最高性能运行，不进入低功耗状态，以提供最快的响应时间。</p>
+<h1 id="sas硬盘参数建议">SAS硬盘参数建议
+</h1><p>对于SCSI硬盘，可以设置elevator，这个参数用于指定I/O请求调度算法。建议值为mq-deadline，这种策略可以提供更好的I/O性能和响应时间，特别是在多核处理器环境下。</p>
+<h1 id="nvme硬盘参数建议">nvme硬盘参数建议
+</h1><p>对于nvme硬盘，可以设置isolate_managed_irq，这个参数用于指定用于指定是否将管理中断（IRQ）与设备驱动程序隔离。建议值为Y，表示启用此功能，这可以减少中断处理的延迟，提高I/O性能。</p>
+<h1 id="为文件系统创建外部日志">为文件系统创建外部日志
+</h1><p>可以将日志放在文件系统外部，从而增加文件系统性能。<br>
+以下命令是创建xfs文件系统，inode为512字节，块大小为4096，log设备在vdc1上，文件系统在vdb1上，从而实现了数据和日志分离。<br>
+$ mkfs.xfs -i size=512 -b size=4096 -l logdev/dev/vdc1 /dev/vdb1</p>
+<h1 id="更多内容请参见本系列其他文章">更多内容请参见本系列其他文章
+</h1><p>&laquo;Linux性能诊断和调优系列(一)&ndash;30秒3条命令诊断Linux性能瓶颈&raquo;<br>
+&laquo;Linux性能诊断和调优系列(二)&ndash;CPU篇&raquo;<br>
+&laquo;Linux性能诊断和调优系列(三)&ndash;内存篇&raquo;<br>
+&laquo;Linux性能诊断和调优系列(四)&ndash;硬盘篇&raquo;<br>
+&laquo;Linux性能诊断和调优系列(五)&ndash;文件系统篇&raquo;<br>
+&laquo;Linux性能诊断和调优系列(六)&ndash;网络篇&raquo;<br>
+&laquo;Linux性能诊断和调优系列(七)&ndash;虚拟机及容器篇&raquo;<br>
+&laquo;Linux性能诊断和调优系列(八)&ndash;虚拟环境性能调优案例&raquo;<br>
+&laquo;Linux性能诊断和调优系列(九)&ndash;计算密集型应用性能调优案例&raquo;<br>
+&laquo;Linux性能诊断和调优系列(十)&ndash;存储密集型应用性能调优案例&raquo;<br>
+&laquo;Linux性能诊断和调优系列(十一)&ndash;大内存型应用性能调优案例&raquo;</p>
+<p>本文内容为原创，如需转载，请务必注明原文出处。<br>
+更多相关内容，欢迎访问我的个人网站：hongxu.wang。<br>
+我们还提供免费的技术支持，欢迎通过公众号与我们联系。</p>
+
+</section>
+
+
+    <footer class="article-meta article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/linux/">Linux</a>
+        
+            <a href="/tags/linux%E6%80%A7%E8%83%BD%E8%AF%8A%E6%96%AD%E5%92%8C%E8%B0%83%E4%BC%98%E7%B3%BB%E5%88%97/">Linux性能诊断和调优系列</a>
+        
+            <a href="/tags/%E5%AD%98%E5%82%A8%E5%AF%86%E9%9B%86%E5%9E%8B%E5%BA%94%E7%94%A8%E6%80%A7%E8%83%BD%E8%B0%83%E4%BC%98%E6%A1%88%E4%BE%8B/">存储密集型应用性能调优案例</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+<aside>
+    <h2 class="section-title">Related content</h2>
+    <div class="subsection-list">
+        <div class="article-list--tile">
+            
+                
+<article class="">
+    <a href="/posts/linux-performance-diagnosis-and-tuning-series-9-cpu-bound-application-tuning-case/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux性能诊断和调优系列(九)--计算密集型应用性能调优案例</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/linux-performance-diagnosis-and-tuning-series-8-virtualization-performance-tuning-case/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux性能诊断和调优系列(八)--虚拟环境性能调优案例</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/linux-performance-diagnosis-and-tuning-series-7-vm-and-docker/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux性能诊断和调优系列(七)--虚拟机及容器篇</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/linux-performance-diagnosis-and-tuning-series-6-network/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux性能诊断和调优系列(六)--网络篇</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/linux-performance-diagnosis-and-tuning-series-5-filesystem/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux性能诊断和调优系列(五)--文件系统篇</h2>
+        </div>
+    </a>
+</article>
+            
+        </div>
+    </div>
+</aside>
+
+     
+    
+        
+        <div class="disqus-container">
+    
+</div>
+
+<style>
+    .disqus-container {
+        background-color: var(--card-background);
+        border-radius: var(--card-border-radius);
+        box-shadow: var(--shadow-l1);
+        padding: var(--card-padding);
+    }
+</style>
+
+<script>
+    window.addEventListener('onColorSchemeChange', (e) => {
+        if (typeof DISQUS == 'object') {
+            DISQUS.reset({
+                reload: true
+            });
+        }
+    })
+</script>
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+        2026 
+    </section>
+    
+    <section class="powerby">
+        Built with <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> <br />
+        Theme <b><a href="https://github.com/CaiJimmy/hugo-theme-stack" target="_blank" rel="noopener" data-version="4.0.0">Stack</a></b> designed by <a href="https://jimmycai.com" target="_blank" rel="noopener">Jimmy</a>
+    </section>
+</footer>
+
+
+    
+
+
+
+<script type="module">
+    import gallery from '\/ts\/gallery.js';
+
+    const articleContent = document.querySelector('.article-content');
+    const shouldLoad = articleContent && (articleContent.querySelectorAll('figure').length > 0 || articleContent.querySelectorAll('img.gallery-image').length > 0);
+    
+    if (shouldLoad) {
+        gallery(articleContent);
+
+        const PhotoSwipeLightbox = (await import("https:\/\/cdn.jsdelivr.net\/npm\/photoswipe@5.4.4\/dist\/photoswipe-lightbox.esm.min.js")).default;
+        const styleHref = "https:\/\/cdn.jsdelivr.net\/npm\/photoswipe@5.4.4\/dist\/photoswipe.css";
+
+        const styleTag = document.createElement('link');
+        styleTag.rel = 'stylesheet';
+        styleTag.href = styleHref;
+        document.head.appendChild(styleTag);
+
+        const lightbox = new PhotoSwipeLightbox({
+            gallerySelector: '.article-content',
+            childSelector: 'figure a.image-link',
+            pswpModule: () => import("https:\/\/cdn.jsdelivr.net\/npm\/photoswipe@5.4.4\/dist\/photoswipe.esm.min.js")
+        });
+        lightbox.init();
+    }
+</script>
+    
+
+            </main>
+        </div>
+        
+<script type="text/javascript" src="/ts/main.3ee067593935e3e391e923f2aa079d2b8173732410e5e89b88be5ea1545eeff7.js" defer></script>
+
+
+    </body>
+</html>

@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+    <head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="Linux性能诊断和调优系列(一) &ndash; 30秒3条命令诊断Linux性能瓶颈\n目录 第一条命令：top 查看整体负载、CPU、内存情况\n第二条命令: iostat -xyz 查看磁盘情况\n第三条命令: sar -n DEV,ETCP 1 查看网络情况\n总结及建议\n正文 当您怀疑Linux系统可能面临性能瓶颈时，以下三条命令可在短短30秒内为您提供初步的诊断，帮助您快速定位潜在的性能问题。这将为您进一步深入分析问题并迅速解决提供坚实的基础。\n第一条命令: top 使用top命令查看整体负载 图中的指标1load average显示了过去1分钟、5分钟和15分钟的平均负载，这些数值反映了系统内正在执行、等待CPU资源以及处于不可中断状态的进程总数。如果这些进程的数量超过了您的CPU核心数量，这可能表明系统可能正承受着较高的负载。\n如果观察到平均负载呈现上升趋势，例如从10到20再到30，那么这可能意味着您的性能或负载正在恶化。现在正是收集相关数据的时机。\n但是，随着时间的推移，平均负载这一指标已经发生了变化，它不再仅仅与CPU核心数量相关联，也不能简单地通过将负载除以CPU核心数来评估。它更多地作为一个宏观的参考指标，帮助我们了解系统的整体负载情况。\n更详细信息和具体原因请参见我的另外两篇文章&laquo;Linux中的load average&raquo;和&laquo;Linux中的load average相关代码和测试过程&raquo;\n使用top命令查看CPU使用情况 图中的指标2 展示了CPU的使用情况：\n如果&quot;sy&quot;（系统CPU使用率）异常高，这可能意味着内核存在问题，比如在处理I/O请求时效率不高。这时，您可能需要检查设备驱动程序是否有bug。\n如果&quot;wa&quot;（等待I/O的CPU时间比例）很高，这通常表明系统可能在等待磁盘I/O操作，这可能意味着磁盘存在性能瓶颈。您可能需要进一步分析磁盘相关的性能指标。\n如果&quot;us&quot;（用户空间CPU使用率）很高，这表明CPU正在运行您的程序。只要进一步分析正在运行和等待CPU的进程数量，确保它们不超过CPU核心的数量，通常就没有问题。\n此外，检查每个CPU核心的使用情况也很重要。如果只有一两颗CPU核心忙碌到接近100%，其他CPU核心相对空闲，这可能意味着程序的多进程或多线程处理不当，没有充分利用CPU的多核性能。在这种情况下，您可能需要考虑优化程序的并发设计。\nCPU还和进程的调度策略、优先级，CPU的亲和性，CPU隔离有关。更多的CPU性能诊断和调优，请参见本系列的另外一篇文章&laquo;Linux性能诊断和调优系列(二)&ndash;CPU篇&raquo;\n">
+<title>Linux性能诊断和调优系列(一) -- 30秒3条命令诊断Linux性能瓶颈</title>
+
+
+<link rel="canonical" href="//localhost:1313/posts/30-second-3-commands-to-diagnose-linux-performance-bottleneck/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap">
+
+
+<link rel="stylesheet" href="/scss/style.min.389e156f5e9bb13df5a924cfa99dfb9c39f3e01e68d9e146cd65bdae963be145.css"><meta property='og:title' content="Linux性能诊断和调优系列(一) -- 30秒3条命令诊断Linux性能瓶颈">
+<meta property='og:description' content="Linux性能诊断和调优系列(一) &ndash; 30秒3条命令诊断Linux性能瓶颈\n目录 第一条命令：top 查看整体负载、CPU、内存情况\n第二条命令: iostat -xyz 查看磁盘情况\n第三条命令: sar -n DEV,ETCP 1 查看网络情况\n总结及建议\n正文 当您怀疑Linux系统可能面临性能瓶颈时，以下三条命令可在短短30秒内为您提供初步的诊断，帮助您快速定位潜在的性能问题。这将为您进一步深入分析问题并迅速解决提供坚实的基础。\n第一条命令: top 使用top命令查看整体负载 图中的指标1load average显示了过去1分钟、5分钟和15分钟的平均负载，这些数值反映了系统内正在执行、等待CPU资源以及处于不可中断状态的进程总数。如果这些进程的数量超过了您的CPU核心数量，这可能表明系统可能正承受着较高的负载。\n如果观察到平均负载呈现上升趋势，例如从10到20再到30，那么这可能意味着您的性能或负载正在恶化。现在正是收集相关数据的时机。\n但是，随着时间的推移，平均负载这一指标已经发生了变化，它不再仅仅与CPU核心数量相关联，也不能简单地通过将负载除以CPU核心数来评估。它更多地作为一个宏观的参考指标，帮助我们了解系统的整体负载情况。\n更详细信息和具体原因请参见我的另外两篇文章&laquo;Linux中的load average&raquo;和&laquo;Linux中的load average相关代码和测试过程&raquo;\n使用top命令查看CPU使用情况 图中的指标2 展示了CPU的使用情况：\n如果&quot;sy&quot;（系统CPU使用率）异常高，这可能意味着内核存在问题，比如在处理I/O请求时效率不高。这时，您可能需要检查设备驱动程序是否有bug。\n如果&quot;wa&quot;（等待I/O的CPU时间比例）很高，这通常表明系统可能在等待磁盘I/O操作，这可能意味着磁盘存在性能瓶颈。您可能需要进一步分析磁盘相关的性能指标。\n如果&quot;us&quot;（用户空间CPU使用率）很高，这表明CPU正在运行您的程序。只要进一步分析正在运行和等待CPU的进程数量，确保它们不超过CPU核心的数量，通常就没有问题。\n此外，检查每个CPU核心的使用情况也很重要。如果只有一两颗CPU核心忙碌到接近100%，其他CPU核心相对空闲，这可能意味着程序的多进程或多线程处理不当，没有充分利用CPU的多核性能。在这种情况下，您可能需要考虑优化程序的并发设计。\nCPU还和进程的调度策略、优先级，CPU的亲和性，CPU隔离有关。更多的CPU性能诊断和调优，请参见本系列的另外一篇文章&laquo;Linux性能诊断和调优系列(二)&ndash;CPU篇&raquo;\n">
+<meta property='og:url' content='//localhost:1313/posts/30-second-3-commands-to-diagnose-linux-performance-bottleneck/'>
+<meta property='og:site_name' content=''>
+<meta property='og:type' content='article'><meta property='article:section' content='Posts' /><meta property='article:tag' content='Linux' /><meta property='article:tag' content='Linux性能诊断和调优系列' /><meta property='article:published_time' content='2023-05-31T18:38:59&#43;08:00'/><meta property='article:modified_time' content='2023-05-31T18:38:59&#43;08:00'/>
+<meta name="twitter:title" content="Linux性能诊断和调优系列(一) -- 30秒3条命令诊断Linux性能瓶颈">
+<meta name="twitter:description" content="Linux性能诊断和调优系列(一) &ndash; 30秒3条命令诊断Linux性能瓶颈\n目录 第一条命令：top 查看整体负载、CPU、内存情况\n第二条命令: iostat -xyz 查看磁盘情况\n第三条命令: sar -n DEV,ETCP 1 查看网络情况\n总结及建议\n正文 当您怀疑Linux系统可能面临性能瓶颈时，以下三条命令可在短短30秒内为您提供初步的诊断，帮助您快速定位潜在的性能问题。这将为您进一步深入分析问题并迅速解决提供坚实的基础。\n第一条命令: top 使用top命令查看整体负载 图中的指标1load average显示了过去1分钟、5分钟和15分钟的平均负载，这些数值反映了系统内正在执行、等待CPU资源以及处于不可中断状态的进程总数。如果这些进程的数量超过了您的CPU核心数量，这可能表明系统可能正承受着较高的负载。\n如果观察到平均负载呈现上升趋势，例如从10到20再到30，那么这可能意味着您的性能或负载正在恶化。现在正是收集相关数据的时机。\n但是，随着时间的推移，平均负载这一指标已经发生了变化，它不再仅仅与CPU核心数量相关联，也不能简单地通过将负载除以CPU核心数来评估。它更多地作为一个宏观的参考指标，帮助我们了解系统的整体负载情况。\n更详细信息和具体原因请参见我的另外两篇文章&laquo;Linux中的load average&raquo;和&laquo;Linux中的load average相关代码和测试过程&raquo;\n使用top命令查看CPU使用情况 图中的指标2 展示了CPU的使用情况：\n如果&quot;sy&quot;（系统CPU使用率）异常高，这可能意味着内核存在问题，比如在处理I/O请求时效率不高。这时，您可能需要检查设备驱动程序是否有bug。\n如果&quot;wa&quot;（等待I/O的CPU时间比例）很高，这通常表明系统可能在等待磁盘I/O操作，这可能意味着磁盘存在性能瓶颈。您可能需要进一步分析磁盘相关的性能指标。\n如果&quot;us&quot;（用户空间CPU使用率）很高，这表明CPU正在运行您的程序。只要进一步分析正在运行和等待CPU的进程数量，确保它们不超过CPU核心的数量，通常就没有问题。\n此外，检查每个CPU核心的使用情况也很重要。如果只有一两颗CPU核心忙碌到接近100%，其他CPU核心相对空闲，这可能意味着程序的多进程或多线程处理不当，没有充分利用CPU的多核性能。在这种情况下，您可能需要考虑优化程序的并发设计。\nCPU还和进程的调度策略、优先级，CPU的亲和性，CPU隔离有关。更多的CPU性能诊断和调优，请参见本系列的另外一篇文章&laquo;Linux性能诊断和调优系列(二)&ndash;CPU篇&raquo;\n">
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="Toggle Menu">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/"></a></h1>
+            <h2 class="site-description"></h2>
+        </div>
+    </header><ol class="menu" id="main-menu">
+        
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>Dark Mode</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            
+            
+            
+            <a href="/categories/%E6%8A%80%E6%9C%AF/" style="background-color: hsl(154, 60%, 84%); color: hsl(154, 60%, 15%);">
+                技术
+            </a>
+        
+            
+            
+            
+            <a href="/categories/linux/" style="background-color: hsl(237, 60%, 84%); color: hsl(237, 60%, 15%);">
+                Linux
+            </a>
+        
+            
+            
+            
+            <a href="/categories/linux%E6%80%A7%E8%83%BD%E8%AF%8A%E6%96%AD%E5%92%8C%E8%B0%83%E4%BC%98%E7%B3%BB%E5%88%97/" style="background-color: hsl(341, 60%, 84%); color: hsl(341, 60%, 15%);">
+                Linux性能诊断和调优系列
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/posts/30-second-3-commands-to-diagnose-linux-performance-bottleneck/">Linux性能诊断和调优系列(一) -- 30秒3条命令诊断Linux性能瓶颈</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    
+    
+    
+    <footer class="article-meta">
+        
+            <div class="inline-meta">
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                    <time class="article-time--published" datetime='2023-05-31T18:38:59&#43;08:00'>Wednesday, May 31, 2023</time>
+                
+
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                    <time class="article-time--reading">
+                        1 minute read
+                    </time>
+                
+            </div>
+        
+
+        
+
+        
+    </footer>
+    
+</div>
+
+</header>
+
+    
+
+    <section class="article-content">
+    
+    
+    <p>Linux性能诊断和调优系列(一) &ndash; 30秒3条命令诊断Linux性能瓶颈<br>
+<img loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px"></p>
+<h1 id="目录">目录
+</h1><p>第一条命令：top 查看整体负载、CPU、内存情况<br>
+第二条命令:  iostat -xyz  查看磁盘情况<br>
+第三条命令: sar -n DEV,ETCP 1 查看网络情况<br>
+总结及建议</p>
+<h1 id="正文">正文
+</h1><p>当您怀疑Linux系统可能面临性能瓶颈时，以下三条命令可在短短30秒内为您提供初步的诊断，帮助您快速定位潜在的性能问题。这将为您进一步深入分析问题并迅速解决提供坚实的基础。</p>
+<h2 id="第一条命令--top">第一条命令:  top
+</h2><h3 id="使用top命令查看整体负载">使用top命令查看整体负载
+</h3><p><img loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px"><br>
+图中的指标1load average显示了过去1分钟、5分钟和15分钟的平均负载，这些数值反映了系统内正在执行、等待CPU资源以及处于不可中断状态的进程总数。如果这些进程的数量超过了您的CPU核心数量，这可能表明系统可能正承受着较高的负载。<br>
+如果观察到平均负载呈现上升趋势，例如从10到20再到30，那么这可能意味着您的性能或负载正在恶化。现在正是收集相关数据的时机。<br>
+但是，随着时间的推移，平均负载这一指标已经发生了变化，它不再仅仅与CPU核心数量相关联，也不能简单地通过将负载除以CPU核心数来评估。它更多地作为一个宏观的参考指标，帮助我们了解系统的整体负载情况。<br>
+更详细信息和具体原因请参见我的另外两篇文章&laquo;Linux中的load average&raquo;和&laquo;Linux中的load average相关代码和测试过程&raquo;</p>
+<h3 id="使用top命令查看cpu使用情况">使用top命令查看CPU使用情况
+</h3><p><img loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px"><br>
+图中的指标2 展示了CPU的使用情况：<br>
+如果&quot;sy&quot;（系统CPU使用率）异常高，这可能意味着内核存在问题，比如在处理I/O请求时效率不高。这时，您可能需要检查设备驱动程序是否有bug。<br>
+如果&quot;wa&quot;（等待I/O的CPU时间比例）很高，这通常表明系统可能在等待磁盘I/O操作，这可能意味着磁盘存在性能瓶颈。您可能需要进一步分析磁盘相关的性能指标。<br>
+如果&quot;us&quot;（用户空间CPU使用率）很高，这表明CPU正在运行您的程序。只要进一步分析正在运行和等待CPU的进程数量，确保它们不超过CPU核心的数量，通常就没有问题。<br>
+此外，检查每个CPU核心的使用情况也很重要。如果只有一两颗CPU核心忙碌到接近100%，其他CPU核心相对空闲，这可能意味着程序的多进程或多线程处理不当，没有充分利用CPU的多核性能。在这种情况下，您可能需要考虑优化程序的并发设计。<br>
+CPU还和进程的调度策略、优先级，CPU的亲和性，CPU隔离有关。更多的CPU性能诊断和调优，请参见本系列的另外一篇文章&laquo;Linux性能诊断和调优系列(二)&ndash;CPU篇&raquo;</p>
+<h3 id="使用top命令查看内存情况">使用top命令查看内存情况
+</h3><p><img loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px"><br>
+图中的指标3提供了内存和交换分区的使用情况：<br>
+先查看交换分区(Swap)的使用量与其总量的比例，如果这个比例小于5%，那么整体上您的内存使用情况还算良好。然而，如果这个比例远大于5%，这可能意味着您的物理内存已经不足以满足当前需求，系统开始频繁使用交换分区。这时，您需要进一步分析内存和交换分区的使用情况，以确定是否存在内存瓶颈。<br>
+接下来，再看&quot;avail Mem&quot;，这个指标显示了当前系统实际剩余的可用内存量，这是评估内存使用状况的更准确指标。<br>
+至于&quot;free&quot;，这个指标通常没什么用！<br>
+内存还和page fault、内存回收以及OOM有关，更多的内存和交换分区性能诊断和调优，请参见本系列的另外一篇文章&laquo;Linux性能诊断和调优系列(三)&ndash;内存篇&raquo;</p>
+<h2 id="第二条命令--iostat--xyz">第二条命令:  iostat -xyz
+</h2><h3 id="使用iostat--xyz命令查看磁盘情况">使用iostat -xyz命令查看磁盘情况
+</h3><p><img loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px"><br>
+图4展示了磁盘的使用情况：<br>
+r/s和w/s分别代表每秒的读操作次数和写操作次数。rkB/s和wkB/s则分别表示每秒的读取和写入的千字节量。如果这些指标的值异常高，可能意味着磁盘正在面临性能问题。这里的&quot;异常高&quot;是指超出了磁盘硬件所能提供的性能指标。<br>
+avgqu-sz表示向磁盘发送的平均请求数。如果这个数值大于1，表明磁盘可能已经达到或接近饱和状态。<br>
+%util是磁盘的使用率，也就是磁盘的繁忙程度。如果这个百分比超过60%，可能预示着性能问题的出现，这通常也会在await指标上得到体现。如果%util达到100%，这意味着磁盘在所有时间里都在处理I/O请求，处于持续忙碌状态。然而，如果磁盘是一个逻辑设备，其后端由多块物理磁盘组成(例如RAID阵列)，那么即使%util达到100%，也可能仅意味着逻辑设备在所有时间里都在处理I/O请求，而其后端的物理磁盘可能并未饱和，仍能处理更多的工作负载。<br>
+注意，由于异步I/O(AIO)的存在，磁盘性能问题并不总是与应用程序本身有关，因为应用程序可能不会直接受到磁盘性能的影响。而且，预读和写入缓冲也会对性能有所改善。<br>
+SSD、NVMe、RAID和普通机械盘都不是同的，例如TRIM。还有设备IO调度等。更多的磁盘性能诊断和调优，请参见本系列的另外一篇文章&laquo;Linux性能诊断和调优系列(四)&ndash;硬盘篇&raquo;</p>
+<h2 id="第三条命令-sar--n-devetcp-1">第三条命令: sar -n DEV,ETCP 1
+</h2><h3 id="使用sar--n-devetcp-1-命令查看网络情况">使用sar -n DEV,ETCP 1 命令查看网络情况
+</h3><p><img loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px"><br>
+图5展示了网络接口的使用情况：<br>
+rxkB/s和txkB/s分别表示网络接口每秒接收和发送的千字节数。请注意，这些单位是以字节为基准的，要转换为网络常用的比特(bit)单位，需要将这些数值乘以8。<br>
+例如，如果rxbB/s的数值是20686.42 kilobytes，那么转换为兆字节就是22 Mbyte/s，再进一步转换为兆比特则是176 Mbits/s。与1 Gbit的网络接口相比，这个速率还有很大的空间。<br>
+retrans/s，即每秒重传的数据包数量，可能是网络或服务器存在问题的一个标志。如果这个数值异常高，可能是由于网络不稳定或服务器过载导致数据包丢失，进而需要重新发送。<br>
+网络很复杂，要考虑网络带宽延迟、window scaling、Jumbo frames、TSO、网络聚合、网络内核参数的调整等。更多的网络性能诊断和调优，请参见本系列的另外一篇文章&laquo;Linux性能诊断和调优系列(六)&ndash;网络篇&raquo;</p>
+<h1 id="总结及建议">总结及建议
+</h1><p>以上三条命令仅适用于一般情况和初步诊断，用于快速初步诊断，查看CPU、内存、磁盘、网络是否可能存在性能问题。但性能问题涉及很多方面，例如文件系统、虚拟机、容器、cgroup、tuned应用程序等。</p>
+<h1 id="更多内容请参见本系列其他文章">更多内容请参见本系列其他文章
+</h1><p>&laquo;Linux性能诊断和调优系列(一)&ndash;30秒3条命令诊断Linux性能瓶颈&raquo;<br>
+&laquo;Linux性能诊断和调优系列(二)&ndash;CPU篇&raquo;<br>
+&laquo;Linux性能诊断和调优系列(三)&ndash;内存篇&raquo;<br>
+&laquo;Linux性能诊断和调优系列(四)&ndash;硬盘篇&raquo;<br>
+&laquo;Linux性能诊断和调优系列(五)&ndash;文件系统篇&raquo;<br>
+&laquo;Linux性能诊断和调优系列(六)&ndash;网络篇&raquo;<br>
+&laquo;Linux性能诊断和调优系列(七)&ndash;虚拟机及容器篇&raquo;<br>
+&laquo;Linux性能诊断和调优系列(八)&ndash;虚拟环境性能调优案例&raquo;<br>
+&laquo;Linux性能诊断和调优系列(九)&ndash;计算密集型应用性能调优案例&raquo;<br>
+&laquo;Linux性能诊断和调优系列(十)&ndash;存储密集型应用性能调优案例&raquo;<br>
+&laquo;Linux性能诊断和调优系列(十一)&ndash;大内存型应用性能调优案例&raquo;<br>
+本文内容为原创，如需转载，请务必注明原文出处。<br>
+更多相关内容，欢迎访问我的个人网站：hongxu.wang。<br>
+我们还提供免费的技术支持，欢迎通过公众号与我们联系。</p>
+
+</section>
+
+
+    <footer class="article-meta article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/linux/">Linux</a>
+        
+            <a href="/tags/linux%E6%80%A7%E8%83%BD%E8%AF%8A%E6%96%AD%E5%92%8C%E8%B0%83%E4%BC%98%E7%B3%BB%E5%88%97/">Linux性能诊断和调优系列</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+<aside>
+    <h2 class="section-title">Related content</h2>
+    <div class="subsection-list">
+        <div class="article-list--tile">
+            
+                
+<article class="">
+    <a href="/posts/setup-local-yum-repo-without-internet-in-lan/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">搭建不需要外网的局域网内yum源</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/setup-local-yum-repo-without-internet-in-lan-log/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">搭建不需要外网的局域网内yum源_log</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/linux-load-average/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux中的load average</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/linux-load-average-source-code-and-testing-process/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux中的load average相关代码和测试过程</h2>
+        </div>
+    </a>
+</article>
+            
+        </div>
+    </div>
+</aside>
+
+     
+    
+        
+        <div class="disqus-container">
+    
+</div>
+
+<style>
+    .disqus-container {
+        background-color: var(--card-background);
+        border-radius: var(--card-border-radius);
+        box-shadow: var(--shadow-l1);
+        padding: var(--card-padding);
+    }
+</style>
+
+<script>
+    window.addEventListener('onColorSchemeChange', (e) => {
+        if (typeof DISQUS == 'object') {
+            DISQUS.reset({
+                reload: true
+            });
+        }
+    })
+</script>
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+        2026 
+    </section>
+    
+    <section class="powerby">
+        Built with <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> <br />
+        Theme <b><a href="https://github.com/CaiJimmy/hugo-theme-stack" target="_blank" rel="noopener" data-version="4.0.0">Stack</a></b> designed by <a href="https://jimmycai.com" target="_blank" rel="noopener">Jimmy</a>
+    </section>
+</footer>
+
+
+    
+
+
+
+<script type="module">
+    import gallery from '\/ts\/gallery.js';
+
+    const articleContent = document.querySelector('.article-content');
+    const shouldLoad = articleContent && (articleContent.querySelectorAll('figure').length > 0 || articleContent.querySelectorAll('img.gallery-image').length > 0);
+    
+    if (shouldLoad) {
+        gallery(articleContent);
+
+        const PhotoSwipeLightbox = (await import("https:\/\/cdn.jsdelivr.net\/npm\/photoswipe@5.4.4\/dist\/photoswipe-lightbox.esm.min.js")).default;
+        const styleHref = "https:\/\/cdn.jsdelivr.net\/npm\/photoswipe@5.4.4\/dist\/photoswipe.css";
+
+        const styleTag = document.createElement('link');
+        styleTag.rel = 'stylesheet';
+        styleTag.href = styleHref;
+        document.head.appendChild(styleTag);
+
+        const lightbox = new PhotoSwipeLightbox({
+            gallerySelector: '.article-content',
+            childSelector: 'figure a.image-link',
+            pswpModule: () => import("https:\/\/cdn.jsdelivr.net\/npm\/photoswipe@5.4.4\/dist\/photoswipe.esm.min.js")
+        });
+        lightbox.init();
+    }
+</script>
+    
+
+            </main>
+        </div>
+        
+<script type="text/javascript" src="/ts/main.3ee067593935e3e391e923f2aa079d2b8173732410e5e89b88be5ea1545eeff7.js" defer></script>
+
+
+    </body>
+</html>

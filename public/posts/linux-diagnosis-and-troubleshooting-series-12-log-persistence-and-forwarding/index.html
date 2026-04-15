@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+    <head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="1. 日志文件 日志文件是包含有关系统的消息的文件，包括内核、服务及其上运行的应用。不同信息有不同的日志文件。\n当尝试对系统问题进行故障排除（如尝试加载内核驱动程序或查找未授权登录尝试系统时）时，日志文件非常有用。\n有些日志文件由名为 rsyslogd 的守护进程控制。rsyslogd 守护进程是 sysklogd 的增强替代品，提供扩展过滤、加密保护消息转发、各种配置选项、输入和输出模块，支持通过 TCP 或 UDP 协议传输。请注意，rsyslogd 与 sysklogd 兼容。\n日志文件也可以由 journald 守护进程（ systemd 的一个组件）进行管理。journald 守护进程捕获 Syslog 消息、内核日志消息、初始 RAM 磁盘和早期启动消息，以及写入到所有服务的标准输出和标准错误输出的消息，对其进行索引，并使其可供用户使用。\n1.1 查找日志文件 由 rsyslogd 维护的日志文件列表可在 /etc/rsyslog.conf 配置文件中找到。大多数日志文件都位于 /var/log/ 目录中。httpd 和 samba 等一些应用在其日志文件中有一个 /var/log/ 中的目录。\n您可以在 /var/log/ 目录中看到多个文件，其编号位于 /var/log/ 目录中（例如： cron-20100906）。这些数据表示已添加到轮转的日志文件中的时间戳。日志文件会被轮转，使其文件大小不会变得太大。logrotate 软件包包含一个 cron 任务，它根据 /etc/logrotate.conf 配置文件和 /etc/logrotate.d/ 目录中的配置文件自动轮转日志文件。\n2. journald Journal 是 systemd 的一个组件，负责查看和管理日志文件。\n日志记录数据由日志的 journald 服务收集、存储和处理。它基于从内核、用户进程、标准输出以及系统服务的标准错误输出或其原生 API 收到的日志信息来创建和维护名为日志的二进制文件。这些日志经过结构化和索引化，可提供相对较快的寻道时间。\njournald: 是systemd的内存里的系统日志服务，也就是会记录从启动到关闭的日志。但如果重启，日志就都没有了。\n使用journalctl命令访问日志。-f持续输出日志，-e跳到最后，-k只看kernel的日志，-u通过服务来查找，-p优先级\n$ journalctl -k //只看kernel的日志 $ journalctl -u sshd //查看服务 sshd的相关日志 Apr 28 15:35:39 hecs-295729 systemd[1]: Starting OpenSSH server daemon... Apr 28 15:35:39 hecs-295729 sshd[1167]: Server listening on 0.0.0.0 port 53975. Apr 28 15:35:39 hecs-295729 sshd[1167]: Server listening on :: port 53975 $ journalctl -p 4 //显示优先级4及其以下的(0-4)的日志 $ journalctl -p emerg //显示emerg优先级的日志 $ journalctl -xb //显示自上次启动以来的所有日志 journalctl --since &#39;2024-04-22 00:00:00&#39; --until &#39;2024-05-22 12:00:00&#39; //显示自从 什么时间， 直到什么时间 的日志。注意时间格式和上面的不一样 .2.1 查看日志文件 若要访问日志，可使用 journalctl 工具，以 root 用户身份进行：\n">
+<title>Linux诊断和故障排除系列(十二) -- 日志持久化和转发</title>
+
+
+<link rel="canonical" href="//localhost:1313/posts/linux-diagnosis-and-troubleshooting-series-12-log-persistence-and-forwarding/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap">
+
+
+<link rel="stylesheet" href="/scss/style.min.389e156f5e9bb13df5a924cfa99dfb9c39f3e01e68d9e146cd65bdae963be145.css"><meta property='og:title' content="Linux诊断和故障排除系列(十二) -- 日志持久化和转发">
+<meta property='og:description' content="1. 日志文件 日志文件是包含有关系统的消息的文件，包括内核、服务及其上运行的应用。不同信息有不同的日志文件。\n当尝试对系统问题进行故障排除（如尝试加载内核驱动程序或查找未授权登录尝试系统时）时，日志文件非常有用。\n有些日志文件由名为 rsyslogd 的守护进程控制。rsyslogd 守护进程是 sysklogd 的增强替代品，提供扩展过滤、加密保护消息转发、各种配置选项、输入和输出模块，支持通过 TCP 或 UDP 协议传输。请注意，rsyslogd 与 sysklogd 兼容。\n日志文件也可以由 journald 守护进程（ systemd 的一个组件）进行管理。journald 守护进程捕获 Syslog 消息、内核日志消息、初始 RAM 磁盘和早期启动消息，以及写入到所有服务的标准输出和标准错误输出的消息，对其进行索引，并使其可供用户使用。\n1.1 查找日志文件 由 rsyslogd 维护的日志文件列表可在 /etc/rsyslog.conf 配置文件中找到。大多数日志文件都位于 /var/log/ 目录中。httpd 和 samba 等一些应用在其日志文件中有一个 /var/log/ 中的目录。\n您可以在 /var/log/ 目录中看到多个文件，其编号位于 /var/log/ 目录中（例如： cron-20100906）。这些数据表示已添加到轮转的日志文件中的时间戳。日志文件会被轮转，使其文件大小不会变得太大。logrotate 软件包包含一个 cron 任务，它根据 /etc/logrotate.conf 配置文件和 /etc/logrotate.d/ 目录中的配置文件自动轮转日志文件。\n2. journald Journal 是 systemd 的一个组件，负责查看和管理日志文件。\n日志记录数据由日志的 journald 服务收集、存储和处理。它基于从内核、用户进程、标准输出以及系统服务的标准错误输出或其原生 API 收到的日志信息来创建和维护名为日志的二进制文件。这些日志经过结构化和索引化，可提供相对较快的寻道时间。\njournald: 是systemd的内存里的系统日志服务，也就是会记录从启动到关闭的日志。但如果重启，日志就都没有了。\n使用journalctl命令访问日志。-f持续输出日志，-e跳到最后，-k只看kernel的日志，-u通过服务来查找，-p优先级\n$ journalctl -k //只看kernel的日志 $ journalctl -u sshd //查看服务 sshd的相关日志 Apr 28 15:35:39 hecs-295729 systemd[1]: Starting OpenSSH server daemon... Apr 28 15:35:39 hecs-295729 sshd[1167]: Server listening on 0.0.0.0 port 53975. Apr 28 15:35:39 hecs-295729 sshd[1167]: Server listening on :: port 53975 $ journalctl -p 4 //显示优先级4及其以下的(0-4)的日志 $ journalctl -p emerg //显示emerg优先级的日志 $ journalctl -xb //显示自上次启动以来的所有日志 journalctl --since &#39;2024-04-22 00:00:00&#39; --until &#39;2024-05-22 12:00:00&#39; //显示自从 什么时间， 直到什么时间 的日志。注意时间格式和上面的不一样 .2.1 查看日志文件 若要访问日志，可使用 journalctl 工具，以 root 用户身份进行：\n">
+<meta property='og:url' content='//localhost:1313/posts/linux-diagnosis-and-troubleshooting-series-12-log-persistence-and-forwarding/'>
+<meta property='og:site_name' content=''>
+<meta property='og:type' content='article'><meta property='article:section' content='Posts' /><meta property='article:tag' content='Linux' /><meta property='article:tag' content='Linux诊断和故障排除' /><meta property='article:tag' content='日志持久化和转发' /><meta property='article:published_time' content='2024-07-12T20:02:29&#43;08:00'/><meta property='article:modified_time' content='2024-07-12T20:02:29&#43;08:00'/>
+<meta name="twitter:title" content="Linux诊断和故障排除系列(十二) -- 日志持久化和转发">
+<meta name="twitter:description" content="1. 日志文件 日志文件是包含有关系统的消息的文件，包括内核、服务及其上运行的应用。不同信息有不同的日志文件。\n当尝试对系统问题进行故障排除（如尝试加载内核驱动程序或查找未授权登录尝试系统时）时，日志文件非常有用。\n有些日志文件由名为 rsyslogd 的守护进程控制。rsyslogd 守护进程是 sysklogd 的增强替代品，提供扩展过滤、加密保护消息转发、各种配置选项、输入和输出模块，支持通过 TCP 或 UDP 协议传输。请注意，rsyslogd 与 sysklogd 兼容。\n日志文件也可以由 journald 守护进程（ systemd 的一个组件）进行管理。journald 守护进程捕获 Syslog 消息、内核日志消息、初始 RAM 磁盘和早期启动消息，以及写入到所有服务的标准输出和标准错误输出的消息，对其进行索引，并使其可供用户使用。\n1.1 查找日志文件 由 rsyslogd 维护的日志文件列表可在 /etc/rsyslog.conf 配置文件中找到。大多数日志文件都位于 /var/log/ 目录中。httpd 和 samba 等一些应用在其日志文件中有一个 /var/log/ 中的目录。\n您可以在 /var/log/ 目录中看到多个文件，其编号位于 /var/log/ 目录中（例如： cron-20100906）。这些数据表示已添加到轮转的日志文件中的时间戳。日志文件会被轮转，使其文件大小不会变得太大。logrotate 软件包包含一个 cron 任务，它根据 /etc/logrotate.conf 配置文件和 /etc/logrotate.d/ 目录中的配置文件自动轮转日志文件。\n2. journald Journal 是 systemd 的一个组件，负责查看和管理日志文件。\n日志记录数据由日志的 journald 服务收集、存储和处理。它基于从内核、用户进程、标准输出以及系统服务的标准错误输出或其原生 API 收到的日志信息来创建和维护名为日志的二进制文件。这些日志经过结构化和索引化，可提供相对较快的寻道时间。\njournald: 是systemd的内存里的系统日志服务，也就是会记录从启动到关闭的日志。但如果重启，日志就都没有了。\n使用journalctl命令访问日志。-f持续输出日志，-e跳到最后，-k只看kernel的日志，-u通过服务来查找，-p优先级\n$ journalctl -k //只看kernel的日志 $ journalctl -u sshd //查看服务 sshd的相关日志 Apr 28 15:35:39 hecs-295729 systemd[1]: Starting OpenSSH server daemon... Apr 28 15:35:39 hecs-295729 sshd[1167]: Server listening on 0.0.0.0 port 53975. Apr 28 15:35:39 hecs-295729 sshd[1167]: Server listening on :: port 53975 $ journalctl -p 4 //显示优先级4及其以下的(0-4)的日志 $ journalctl -p emerg //显示emerg优先级的日志 $ journalctl -xb //显示自上次启动以来的所有日志 journalctl --since &#39;2024-04-22 00:00:00&#39; --until &#39;2024-05-22 12:00:00&#39; //显示自从 什么时间， 直到什么时间 的日志。注意时间格式和上面的不一样 .2.1 查看日志文件 若要访问日志，可使用 journalctl 工具，以 root 用户身份进行：\n">
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="Toggle Menu">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/"></a></h1>
+            <h2 class="site-description"></h2>
+        </div>
+    </header><ol class="menu" id="main-menu">
+        
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>Dark Mode</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            
+            
+            
+            <a href="/categories/%E6%8A%80%E6%9C%AF/" style="background-color: hsl(154, 60%, 84%); color: hsl(154, 60%, 15%);">
+                技术
+            </a>
+        
+            
+            
+            
+            <a href="/categories/linux/" style="background-color: hsl(237, 60%, 84%); color: hsl(237, 60%, 15%);">
+                Linux
+            </a>
+        
+            
+            
+            
+            <a href="/categories/linux%E8%AF%8A%E6%96%AD%E5%92%8C%E6%95%85%E9%9A%9C%E6%8E%92%E9%99%A4/" style="background-color: hsl(283, 60%, 84%); color: hsl(283, 60%, 15%);">
+                Linux诊断和故障排除
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/posts/linux-diagnosis-and-troubleshooting-series-12-log-persistence-and-forwarding/">Linux诊断和故障排除系列(十二) -- 日志持久化和转发</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    
+    
+    
+    <footer class="article-meta">
+        
+            <div class="inline-meta">
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                    <time class="article-time--published" datetime='2024-07-12T20:02:29&#43;08:00'>Friday, July 12, 2024</time>
+                
+
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                    <time class="article-time--reading">
+                        4 minutes read
+                    </time>
+                
+            </div>
+        
+
+        
+
+        
+    </footer>
+    
+</div>
+
+</header>
+
+    
+
+    <section class="article-content">
+    
+    
+    <h1 id="1-日志文件">1. 日志文件
+</h1><p>日志文件是包含有关系统的消息的文件，包括内核、服务及其上运行的应用。不同信息有不同的日志文件。<br>
+当尝试对系统问题进行故障排除（如尝试加载内核驱动程序或查找未授权登录尝试系统时）时，日志文件非常有用。<br>
+有些日志文件由名为 rsyslogd 的守护进程控制。rsyslogd 守护进程是 sysklogd 的增强替代品，提供扩展过滤、加密保护消息转发、各种配置选项、输入和输出模块，支持通过 TCP 或 UDP 协议传输。请注意，rsyslogd 与 sysklogd 兼容。<br>
+日志文件也可以由 journald 守护进程（ systemd 的一个组件）进行管理。journald 守护进程捕获 Syslog 消息、内核日志消息、初始 RAM 磁盘和早期启动消息，以及写入到所有服务的标准输出和标准错误输出的消息，对其进行索引，并使其可供用户使用。</p>
+<h2 id="11-查找日志文件">1.1 查找日志文件
+</h2><p>由 rsyslogd 维护的日志文件列表可在 /etc/rsyslog.conf 配置文件中找到。大多数日志文件都位于 /var/log/ 目录中。httpd 和 samba 等一些应用在其日志文件中有一个 /var/log/ 中的目录。</p>
+<p>您可以在 /var/log/ 目录中看到多个文件，其编号位于 /var/log/ 目录中（例如： cron-20100906）。这些数据表示已添加到轮转的日志文件中的时间戳。日志文件会被轮转，使其文件大小不会变得太大。logrotate 软件包包含一个 cron 任务，它根据 /etc/logrotate.conf 配置文件和 /etc/logrotate.d/ 目录中的配置文件自动轮转日志文件。</p>
+<h1 id="2-journald">2. journald
+</h1><p>Journal 是 systemd 的一个组件，负责查看和管理日志文件。<br>
+日志记录数据由日志的 journald 服务收集、存储和处理。它基于从内核、用户进程、标准输出以及系统服务的标准错误输出或其原生 API 收到的日志信息来创建和维护名为日志的二进制文件。这些日志经过结构化和索引化，可提供相对较快的寻道时间。<br>
+journald: 是systemd的内存里的系统日志服务，也就是会记录从启动到关闭的日志。但如果重启，日志就都没有了。<br>
+使用journalctl命令访问日志。-f持续输出日志，-e跳到最后，-k只看kernel的日志，-u通过服务来查找，-p优先级</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl">$ journalctl -k     //只看kernel的日志
+</span></span><span class="line"><span class="cl">$ journalctl -u sshd        //查看服务 sshd的相关日志
+</span></span><span class="line"><span class="cl">Apr <span class="m">28</span> 15:35:39 hecs-295729 systemd<span class="o">[</span>1<span class="o">]</span>: Starting OpenSSH server daemon...
+</span></span><span class="line"><span class="cl">Apr <span class="m">28</span> 15:35:39 hecs-295729 sshd<span class="o">[</span>1167<span class="o">]</span>: Server listening on 0.0.0.0 port 53975.
+</span></span><span class="line"><span class="cl">Apr <span class="m">28</span> 15:35:39 hecs-295729 sshd<span class="o">[</span>1167<span class="o">]</span>: Server listening on :: port <span class="m">53975</span>
+</span></span><span class="line"><span class="cl">$ journalctl -p <span class="m">4</span>       //显示优先级4及其以下的<span class="o">(</span>0-4<span class="o">)</span>的日志
+</span></span><span class="line"><span class="cl">$ journalctl -p emerg   //显示emerg优先级的日志
+</span></span><span class="line"><span class="cl">$ journalctl -xb        //显示自上次启动以来的所有日志
+</span></span><span class="line"><span class="cl">journalctl --since <span class="s1">&#39;2024-04-22 00:00:00&#39;</span> --until <span class="s1">&#39;2024-05-22 12:00:00&#39;</span>        //显示自从 什么时间， 直到什么时间 的日志。注意时间格式和上面的不一样
+</span></span></code></pre></div><h2 id="21-查看日志文件">.2.1 查看日志文件
+</h2><p>若要访问日志，可使用 journalctl 工具，以 root 用户身份进行：</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl">$ journalctl
+</span></span></code></pre></div><p>减少 journalctl 输出的最简单方法是使用 -n 选项，它只列出指定数量的最新日志条目：<br>
+使用要显示的行数替换 Number。如果未指定数字，journalctl 将显示最新的十个条目。</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl">$ journalctl -n Number
+</span></span></code></pre></div><p>journalctl 命令允许使用以下语法控制输出格式：<br>
+使用指定所需输出格式的关键字替换 form。有多个选项，如 verbose （返回包含所有字段的全结构条目项）、export（ 创建 适合备份和网络传输的二进制流）和 json （将条目格式化为 JSON 数据结构）。有关关键字的完整列表，请查看 journalctl(1) 手册页。</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl">$ journalctl -o verbose
+</span></span></code></pre></div><h2 id="22-过滤消息">2.2 过滤消息
+</h2><p>按优先级过滤<br>
+要只查看优先级为 error 或更高的条目，请使用：</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl">$ journalctl -p err
+</span></span></code></pre></div><p>按时间过滤<br>
+要只从当前引导中查看日志条目，请键入：</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl">$ journalctl -b
+</span></span></code></pre></div><p>基于时间的过滤更有用：<br>
+使用 &ndash;since 和 &ndash;until 时，您只能查看在指定时间范围内创建的日志消息。</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl">$ journalctl --since<span class="o">=</span>value --until<span class="o">=</span>value
+</span></span></code></pre></div><p>您可以将值以日期和时间形式传递给这些选项</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl"><span class="m">4</span> journalctl -p warning --since<span class="o">=</span><span class="s2">&#34;2013-3-16 23:59:59&#34;</span>
+</span></span></code></pre></div><h2 id="23-高级过滤">2.3 高级过滤
+</h2><p>有关 systemd 可存储的元数据的完整描述，请参阅 systemd.journal-fields(7) 手册页。为每个日志消息收集此元数据，无需用户干预。</p>
+<p>要查看指定字段中出现的唯一值列表，请使用以下语法：<br>
+使用您感兴趣的字段的名称替换 fieldname。</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl">$ journalctl -F fieldname
+</span></span></code></pre></div><p>要只显示适合特定条件的日志条目，请使用以下语法：<br>
+使用字段名称替换 fieldname ，并将值替换为该字段中包含的特定值。因此，只会返回与这个条件匹配的行。</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl">$ journalctl <span class="nv">fieldname</span><span class="o">=</span>value
+</span></span></code></pre></div><p>要显示 user 下由 avahi-daemon.service 或 crond.service 创建的条目，请使用以下命令：</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl">$ journalctl <span class="nv">_UID</span><span class="o">=</span><span class="m">70</span> <span class="nv">_SYSTEMD_UNIT</span><span class="o">=</span>avahi-daemon.service <span class="nv">_SYSTEMD_UNIT</span><span class="o">=</span>crond.service
+</span></span></code></pre></div><h1 id="3-rsyslod">3. rsyslod
+</h1><p>rsyslod: 是一个系统日志工具，用于过滤和管理日志，日志可以在/var/log中找到(增强了TCP的过滤和支持)<br>
+每一条信息都包括了2部分：Facilities和Priority</p>
+<h2 id="31-facilities是提供日志信息的子系统">3.1 Facilities是提供日志信息的子系统
+</h2><p>Facilities是提供日志信息的子系统。例如auth/authpriv/cron/daemon/kern/lpr/mail/mark/news/syslog/user/uucp/local0-local7</p>
+<h2 id="32-priority是优先级">3.2 Priority是优先级
+</h2><p>Priority是优先级，从0-7，严重程度递减。0 emerg/1 alert/2 crit/3 error/4 warn/5 notice/6 info/7 debug</p>
+<h1 id="4--启用持久性存储">4.  启用持久性存储
+</h1><p>默认情况下，日志仅将日志文件 存储在 内存中或 /run/log/journal/ 目录中的小型环缓冲器中。此目录日志数据不会永久保存。使用默认配置时，syslog 会读取日志并将其存储在 /var/log/ 目录中。<br>
+启用持久日志记录后，日志文件存储在 /var/log/journal 中，这意味着它们会在重启后保留。然后日志可以替换某些用户的 rsyslog</p>
+<h2 id="41-编辑etcsystemdjournaldconf">4.1 编辑/etc/systemd/journald.conf
+</h2><p>打开 /etc/systemd/journald.conf &laquo;&laquo;&laquo; 使用man 5 journald.conf来查看配置文件里面的每一个选项的说明<br>
+把 Storage=auto 这一行注释给取消</p>
+<h2 id="42-手动创建日志目录">4.2 手动创建日志目录
+</h2><p>为日志文件创建一个位置 mkdir -p /var/log/journal/<br>
+设置权限 chown root:systemd-journal /var/log/journal<br>
+chmod 2755 /var/log/journal</p>
+<h2 id="43-重启-journald-以应用更改">4.3 重启 journald 以应用更改
+</h2><p>重启服务 systemctl restart systemd-journald<br>
+验证，看看是否有日志输出 ll /var/log/journal/</p>
+<h2 id="44-journaldconf参数">4.4 journald.conf参数
+</h2><p>如果将 journald 配置为持久化保存日志，那么默认情况下，日志大小限制为该文件分区的 10%，最多可占用 4GB 磁盘空间，这是通过修改参数 SystemMaxUse 来调整的</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl"><span class="c1"># /etc/systemd/journald.conf</span>
+</span></span><span class="line"><span class="cl"><span class="nv">RuntimeMaxUse</span><span class="o">=</span> 日志在内存里最大容量
+</span></span><span class="line"><span class="cl"><span class="nv">SystemMaxUse</span><span class="o">=</span> 日志最大可用容量，然后对日志文件执行systemd-journald logrotate。默认为分配给节点的总物理内存的10％
+</span></span><span class="line"><span class="cl"><span class="nv">RuntimeMaxFileSize</span><span class="o">=</span> 在内存中单个日志文件的最大容量
+</span></span><span class="line"><span class="cl"><span class="nv">SystemMaxFileSize</span><span class="o">=</span> 单个日志文件的最大容量 到达此限制后日志文件将会自动滚动。 默认值是对应的 <span class="nv">SystemMaxUse</span><span class="o">=</span>/RuntimeMaxUse<span class="o">=</span> 值的1/8 ， 这也意味着日志滚动 默认保留7个历史文件。
+</span></span><span class="line"><span class="cl">RuntimeKeepFree/SystemKeepFree<span class="o">=</span> 控制systemd-journald将为其他用途保留多少磁盘空间，之后将对日志文件执行systemd-journald logrotate。默认为分配给节点的总物理内存的15％
+</span></span><span class="line"><span class="cl">SystemMaxFiles/RuntimeMaxFiles<span class="o">=</span> 限制最多允许同时存在多少个日志文件， 超出此限制后， 最老的日志文件将被删除， 而当前的活动日志文件 则不受影响。 默认值为100个。
+</span></span><span class="line"><span class="cl"><span class="nv">MaxRetentionSec</span><span class="o">=</span>日志滚动的时间间隔。通常并不需要使用基于时间的日志滚动策略， 因为由SystemMaxFileSize/RuntimeMaxFileSize<span class="o">=</span> 控制的基于文件大小的日志滚动策略已经可以确保日志文件的大小不会超标。 默认值是一个月， 设为零表示禁用基于时间的日志滚动策略。
+</span></span><span class="line"><span class="cl"><span class="nv">MaxRetentionSec</span><span class="o">=</span>日志文件的最大保留期限。 当日志文件的最后修改时间<span class="o">(</span>mtime<span class="o">)</span>与当前时间之差，大于此处设置的值时，日志文件将会被删除。 通常并不需要使用基于时间的日志删除策略。
+</span></span></code></pre></div><h1 id="5-远程日志转发">5. 远程日志转发
+</h1><p>rsyslog 服务提供运行日志记录服务器和将各个系统配置为将其日志文件发送到日志记录服务器的功能。</p>
+<h2 id="51-安装rsyslog在日志服务器和日志客户端上">5.1 安装rsyslog(在日志服务器和日志客户端上)
+</h2><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl">$ yum install rsyslog		//安装rsyslog
+</span></span></code></pre></div><p>系统日志流量的默认协议和端口为 UDP 和 514，如 /etc/services 文件中列出的。但是，r syslog 默认为在端口 514 上使用 TCP。在 配置文件 /etc/rsyslog.conf 中，TCP 由 @@ 表示。<br>
+验证 rsyslog 正在侦听哪些端口：</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl">$ netstat -tnlp <span class="p">|</span> grep rsyslog
+</span></span><span class="line"><span class="cl">tcp    <span class="m">0</span>   <span class="m">0</span> 0.0.0.0:10514      0.0.0.0:*  LISTEN   2528/rsyslogd
+</span></span><span class="line"><span class="cl">tcp    <span class="m">0</span>   <span class="m">0</span> :::10514        :::*    LISTEN   2528/rsyslogd
+</span></span></code></pre></div><h2 id="52-配置日志服务器在日志服务器上">5.2 配置日志服务器(在日志服务器上)
+</h2><h3 id="521-方法一-redhat官方文档将-rsyslog-配置为接收和排序远程日志消息">5.2.1 方法一 (redhat官方文档)将 rsyslog 配置为接收和排序远程日志消息
+</h3><p><a class="link" href="https://docs.redhat.com/zh_hans/documentation/red_hat_enterprise_linux/7/html/system_administrators_guide/s1-configuring_rsyslog_on_a_logging_server"  target="_blank" rel="noopener"
+    >https://docs.redhat.com/zh_hans/documentation/red_hat_enterprise_linux/7/html/system_administrators_guide/s1-configuring_rsyslog_on_a_logging_server</a><br>
+使用rsyslog来配置远程日志<br>
+在 modules 部分下方，在Provides UDP syslog 上方，添加这些行</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl"><span class="c1"># Define templates before the rules that use them</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Per-Host Templates for Remote Systems #</span>
+</span></span><span class="line"><span class="cl"><span class="nv">$template</span> TmplAuthpriv, <span class="s2">&#34;/var/log/remote/auth/%HOSTNAME%/%PROGRAMNAME:::secpath-replace%.log&#34;</span>
+</span></span><span class="line"><span class="cl"><span class="nv">$template</span> TmplMsg, <span class="s2">&#34;/var/log/remote/msg/%HOSTNAME%/%PROGRAMNAME:::secpath-replace%.log&#34;</span>
+</span></span></code></pre></div><p>将默认的 Provides TCP syslog 接收 部分替换为以下内容：</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl"><span class="c1"># Provides TCP syslog reception</span>
+</span></span><span class="line"><span class="cl"><span class="nv">$ModLoad</span> imtcp
+</span></span><span class="line"><span class="cl"><span class="c1"># Adding this ruleset to process remote messages</span>
+</span></span><span class="line"><span class="cl"><span class="nv">$RuleSet</span> remote1
+</span></span><span class="line"><span class="cl">authpriv.*  ?TmplAuthpriv
+</span></span><span class="line"><span class="cl">*.info<span class="p">;</span>mail.none<span class="p">;</span>authpriv.none<span class="p">;</span>cron.none  ?TmplMsg
+</span></span><span class="line"><span class="cl"><span class="nv">$RuleSet</span> RSYSLOG_DefaultRuleset  <span class="c1">#End the rule set by switching back to the default rule set</span>
+</span></span><span class="line"><span class="cl"><span class="nv">$InputTCPServerBindRuleset</span> remote1 <span class="c1">#Define a new input and bind it to the &#34;remote1&#34; rule set</span>
+</span></span><span class="line"><span class="cl"><span class="nv">$InputTCPServerRun</span> <span class="m">10514</span>
+</span></span></code></pre></div><p>重启rsyslog</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl">$ systemctl restart rsyslog
+</span></span><span class="line"><span class="cl">$ systemctl status rsyslog
+</span></span></code></pre></div><h3 id="522-方法二rh342课程里的方法">5.2.2 方法二(RH342课程里的方法)
+</h3><p>在/etc/rsyslog.conf，取消下面最后二行的注释(在 # Provides TCP syslog reception 下面)</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl">$ vi /etc/rsyslog.conf
+</span></span><span class="line"><span class="cl"><span class="c1"># Provides TCP syslog reception</span>
+</span></span><span class="line"><span class="cl"><span class="nv">$ModLoad</span> imtcp
+</span></span><span class="line"><span class="cl"><span class="nv">$InputTCPServerRun</span> <span class="m">514</span>
+</span></span></code></pre></div><p>编辑要记录的日志，通过Facilities和Priorities来编辑：</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl">mail.*	/var/log/maillog		<span class="o">&lt;&lt;&lt;</span>先是acilities子系统，然后是Priorities优先级<span class="o">(</span>*代表所有<span class="o">)</span>，最后是日志放哪里
+</span></span><span class="line"><span class="cl">*.emerg		:omusrmsg:*				<span class="o">&lt;&lt;&lt;</span>把 所有子系统的 emerg类信息，都直接发给当前所有登录用户
+</span></span><span class="line"><span class="cl">auth<span class="p">;</span>syslog.crit<span class="p">;</span>error  .				<span class="o">&lt;&lt;&lt;</span>&lt;多个子系统入一行。auth的所有都记录，syslog的只记录crit的，error的都记录。并把日志 记录在根目录下
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># log all</span>
+</span></span><span class="line"><span class="cl"><span class="nv">$template</span> LogLocale,<span class="s2">&#34;/var/log/hosts/%HOSTNAME%.log&#34;</span>			<span class="o">&lt;&lt;&lt;</span>定义一个模板，名字叫LogLocale。这样，每个主机都会以自己的主机名来命名了
+</span></span><span class="line"><span class="cl">*.*		-?LogLocale						<span class="o">&lt;&lt;&lt;</span>引用名字为LogLocale的模板，引用方法为 -?
+</span></span></code></pre></div><p>重启rsyslog</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl">$ systemctl restart rsyslog
+</span></span><span class="line"><span class="cl">$ systemctl status rsyslog
+</span></span></code></pre></div><h2 id="53-配置日志客户端在客户端_要收集日志的机器上">5.3 配置日志客户端(在客户端_要收集日志的机器上)
+</h2><h3 id="531-方法一-redhat官方文档例-2312-可靠将日志消息转发至服务器">5.3.1 方法一 (redhat官方文档)例 23.12. 可靠将日志消息转发至服务器
+</h3><p><a class="link" href="https://docs.redhat.com/zh_hans/documentation/red_hat_enterprise_linux/7/html/system_administrators_guide/s1-working_with_queues_in_rsyslog#ex-net_forwarding_with_queue"  target="_blank" rel="noopener"
+    >https://docs.redhat.com/zh_hans/documentation/red_hat_enterprise_linux/7/html/system_administrators_guide/s1-working_with_queues_in_rsyslog#ex-net_forwarding_with_queue</a><br>
+假设任务是将日志消息从系统转发到主机名为 example.com 的服务器，并且配置操作队列以缓冲消息（以防服务器中断）。<br>
+在 /etc/rsyslog.conf 中使用 以下配置，或在 /etc/rsyslog.d/ 目录中创建包含以下内容的文件：</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl">. action<span class="o">(</span><span class="nv">type</span><span class="o">=</span>”omfwd”
+</span></span><span class="line"><span class="cl">queue.type<span class="o">=</span>”LinkedList”
+</span></span><span class="line"><span class="cl">queue.filename<span class="o">=</span>”example_fwd”
+</span></span><span class="line"><span class="cl">action.resumeRetryCount<span class="o">=</span><span class="s2">&#34;-1&#34;</span>
+</span></span><span class="line"><span class="cl">queue.saveonshutdown<span class="o">=</span><span class="s2">&#34;on&#34;</span>
+</span></span><span class="line"><span class="cl"><span class="nv">Target</span><span class="o">=</span><span class="s2">&#34;example.com&#34;</span> <span class="nv">Port</span><span class="o">=</span><span class="s2">&#34;6514&#34;</span> <span class="nv">Protocol</span><span class="o">=</span><span class="s2">&#34;tcp&#34;</span><span class="o">)</span>
+</span></span></code></pre></div><p>其中：<br>
+queue.type 启用 LinkedList 内存中队列，<br>
+queue.filename 定义磁盘存储，在这种情况下，备份文件在 /var/lib/rsyslog/ 目录中创建，前缀为 example_fwd。<br>
+action.resumeRetryCount= &ldquo;-1&rdquo; 设置阻止 rsyslog 在重试连接时丢弃消息（如果服务器没有响应）<br>
+如果 rsyslog 关闭，启用的 queue.saveonshutdown 可保存内存中数据。<br>
+最后一行使用可靠的 TCP 发送将所有收到的消息转发到日志记录服务器，端口规格是可选的。</p>
+<p>使用上述配置时，如果远程服务器无法访问，rsyslog 将消息保留在内存中。只有在 rsyslog 用尽配置的内存队列空间或需要关闭时，才会在磁盘上创建文件，这将提高系统性能。</p>
+<h3 id="532-方法二rh342课程里的方法">5.3.2 方法二(RH342课程里的方法)
+</h3><p>使用rsyslog来配置远程日志<br>
+在/etc/rsyslog.conf，在文件最下面，编辑最下面一段(在 # ### begin forwarding rule ### 下面)</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl">$ vi /etc/rsyslog.conf
+</span></span><span class="line"><span class="cl"><span class="c1"># ### begin forwarding rule ###</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># The statement between the begin ... end define a SINGLE forwarding</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># rule. They belong together, do NOT split them. If you create multiple</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># forwarding rules, duplicate the whole block!</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># Remote Logging (we use TCP for reliable delivery)</span>
+</span></span><span class="line"><span class="cl"><span class="c1">#</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># An on-disk queue is created for this action. If the remote host is</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># down, messages are spooled to disk and sent when it is up again.</span>
+</span></span><span class="line"><span class="cl"><span class="nv">$ActionQueueFileName</span> fwdRule1 <span class="c1"># unique name prefix for spool files</span>
+</span></span><span class="line"><span class="cl"><span class="nv">$ActionQueueMaxDiskSpace</span> 1g   <span class="c1"># 1gb space limit (use as much as possible)</span>
+</span></span><span class="line"><span class="cl"><span class="nv">$ActionQueueSaveOnShutdown</span> on <span class="c1"># save messages to disk on shutdown</span>
+</span></span><span class="line"><span class="cl"><span class="nv">$ActionQueueType</span> LinkedList   <span class="c1"># run asynchronously</span>
+</span></span><span class="line"><span class="cl"><span class="nv">$ActionResumeRetryCount</span> -1    <span class="c1"># infinite retries if host is down</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># remote host is: name/ip:port, e.g. 192.168.0.1:514, port optional</span>
+</span></span><span class="line"><span class="cl">*.* @@remote-host:514           //在这里把remote-host改为上面日志服务器的IP，把514改为上面日志服务器中配置文件中的端口号<span class="o">(</span>上一步里面<span class="o">)</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># ### end of the forwarding rule ###</span>
+</span></span></code></pre></div><p>重启rsyslog</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl">$ systemctl restart rsyslog
+</span></span><span class="line"><span class="cl">$ systemctl status rsyslog
+</span></span></code></pre></div><p>测试</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl">$ logger hihi hello         //发送一条日志。然后在日志服务器上应该会看到
+</span></span></code></pre></div>
+</section>
+
+
+    <footer class="article-meta article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/linux/">Linux</a>
+        
+            <a href="/tags/linux%E8%AF%8A%E6%96%AD%E5%92%8C%E6%95%85%E9%9A%9C%E6%8E%92%E9%99%A4/">Linux诊断和故障排除</a>
+        
+            <a href="/tags/%E6%97%A5%E5%BF%97%E6%8C%81%E4%B9%85%E5%8C%96%E5%92%8C%E8%BD%AC%E5%8F%91/">日志持久化和转发</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+<aside>
+    <h2 class="section-title">Related content</h2>
+    <div class="subsection-list">
+        <div class="article-list--tile">
+            
+                
+<article class="">
+    <a href="/posts/linux-diagnosis-and-troubleshooting-series-11-dump-setup-and-analysis/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux诊断和故障排除系列(十一) -- dump设置和分析</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/linux-diagnosis-and-troubleshooting-series-10-hardware-issue-logs/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux诊断和故障排除系列(十) -- 硬件问题日志</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/linux-diagnosis-and-troubleshooting-series-9-authentication-and-authorization-issues/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux诊断和故障排除系列(九) -- 身份验证和授权问题诊断</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/linux-diagnosis-and-troubleshooting-series-8-network-issues/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux诊断和故障排除系列(八) -- 网络问题诊断</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/linux-diagnosis-and-troubleshooting-series-7-application-diagnosis/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux诊断和故障排除系列(七) -- 应用程序诊断</h2>
+        </div>
+    </a>
+</article>
+            
+        </div>
+    </div>
+</aside>
+
+     
+    
+        
+        <div class="disqus-container">
+    
+</div>
+
+<style>
+    .disqus-container {
+        background-color: var(--card-background);
+        border-radius: var(--card-border-radius);
+        box-shadow: var(--shadow-l1);
+        padding: var(--card-padding);
+    }
+</style>
+
+<script>
+    window.addEventListener('onColorSchemeChange', (e) => {
+        if (typeof DISQUS == 'object') {
+            DISQUS.reset({
+                reload: true
+            });
+        }
+    })
+</script>
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+        2026 
+    </section>
+    
+    <section class="powerby">
+        Built with <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> <br />
+        Theme <b><a href="https://github.com/CaiJimmy/hugo-theme-stack" target="_blank" rel="noopener" data-version="4.0.0">Stack</a></b> designed by <a href="https://jimmycai.com" target="_blank" rel="noopener">Jimmy</a>
+    </section>
+</footer>
+
+
+    
+
+
+
+<script type="module">
+    import gallery from '\/ts\/gallery.js';
+
+    const articleContent = document.querySelector('.article-content');
+    const shouldLoad = articleContent && (articleContent.querySelectorAll('figure').length > 0 || articleContent.querySelectorAll('img.gallery-image').length > 0);
+    
+    if (shouldLoad) {
+        gallery(articleContent);
+
+        const PhotoSwipeLightbox = (await import("https:\/\/cdn.jsdelivr.net\/npm\/photoswipe@5.4.4\/dist\/photoswipe-lightbox.esm.min.js")).default;
+        const styleHref = "https:\/\/cdn.jsdelivr.net\/npm\/photoswipe@5.4.4\/dist\/photoswipe.css";
+
+        const styleTag = document.createElement('link');
+        styleTag.rel = 'stylesheet';
+        styleTag.href = styleHref;
+        document.head.appendChild(styleTag);
+
+        const lightbox = new PhotoSwipeLightbox({
+            gallerySelector: '.article-content',
+            childSelector: 'figure a.image-link',
+            pswpModule: () => import("https:\/\/cdn.jsdelivr.net\/npm\/photoswipe@5.4.4\/dist\/photoswipe.esm.min.js")
+        });
+        lightbox.init();
+    }
+</script>
+    
+
+            </main>
+        </div>
+        
+<script type="text/javascript" src="/ts/main.3ee067593935e3e391e923f2aa079d2b8173732410e5e89b88be5ea1545eeff7.js" defer></script>
+
+
+    </body>
+</html>

@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+    <head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="CentOS7.9安装minikube 本文记录了在CentOS7.9上安装配置minikube的过程，目的是为了在单台机器上运行一个k8s的环境，而不需要创建一个k8s集群。\n1.版本及安装前提 1.1版本概述 宿主机: Windows 10\n虚拟机: VMware\n虚拟机OS: CentOS7.9\nMninKube: v1.30.1\nContainerd: 1.6.20\nDocker: 23.0.3\n1.2安装前提 2 CPUs or more\n2GB of free memory\n20GB of free disk space\nInternet connection\nContainer or virtual machine manager, such as: Docker, QEMU, Hyperkit, Hyper-V, KVM, Parallels, Podman, VirtualBox, or VMware Fusion/Workstation\nlink: https://minikube.sigs.k8s.io/docs/start\n1.3过程概述 OS环境准备 下载并安装CRI 下载并安装minikube 运行一个示例来测试minikube 2.OS环境准备 2.1 关闭防火墙： # hostnamectl set-hostname minikube # systemctl stop firewalld # systemctl disable firewalld 2.2 关闭selinux # sed -i &#39;s/enforcing/disabled/&#39; /etc/selinux/config 2.3 关闭swap 删除swap那一行，或者注释掉\n">
+<title>安装minikube</title>
+
+
+<link rel="canonical" href="//localhost:1313/posts/install-minikube/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap">
+
+
+<link rel="stylesheet" href="/scss/style.min.389e156f5e9bb13df5a924cfa99dfb9c39f3e01e68d9e146cd65bdae963be145.css"><meta property='og:title' content="安装minikube">
+<meta property='og:description' content="CentOS7.9安装minikube 本文记录了在CentOS7.9上安装配置minikube的过程，目的是为了在单台机器上运行一个k8s的环境，而不需要创建一个k8s集群。\n1.版本及安装前提 1.1版本概述 宿主机: Windows 10\n虚拟机: VMware\n虚拟机OS: CentOS7.9\nMninKube: v1.30.1\nContainerd: 1.6.20\nDocker: 23.0.3\n1.2安装前提 2 CPUs or more\n2GB of free memory\n20GB of free disk space\nInternet connection\nContainer or virtual machine manager, such as: Docker, QEMU, Hyperkit, Hyper-V, KVM, Parallels, Podman, VirtualBox, or VMware Fusion/Workstation\nlink: https://minikube.sigs.k8s.io/docs/start\n1.3过程概述 OS环境准备 下载并安装CRI 下载并安装minikube 运行一个示例来测试minikube 2.OS环境准备 2.1 关闭防火墙： # hostnamectl set-hostname minikube # systemctl stop firewalld # systemctl disable firewalld 2.2 关闭selinux # sed -i &#39;s/enforcing/disabled/&#39; /etc/selinux/config 2.3 关闭swap 删除swap那一行，或者注释掉\n">
+<meta property='og:url' content='//localhost:1313/posts/install-minikube/'>
+<meta property='og:site_name' content=''>
+<meta property='og:type' content='article'><meta property='article:section' content='Posts' /><meta property='article:tag' content='CentOS' /><meta property='article:tag' content='k8s' /><meta property='article:tag' content='minikube' /><meta property='article:published_time' content='2023-04-11T18:59:37&#43;08:00'/><meta property='article:modified_time' content='2023-04-11T18:59:37&#43;08:00'/>
+<meta name="twitter:title" content="安装minikube">
+<meta name="twitter:description" content="CentOS7.9安装minikube 本文记录了在CentOS7.9上安装配置minikube的过程，目的是为了在单台机器上运行一个k8s的环境，而不需要创建一个k8s集群。\n1.版本及安装前提 1.1版本概述 宿主机: Windows 10\n虚拟机: VMware\n虚拟机OS: CentOS7.9\nMninKube: v1.30.1\nContainerd: 1.6.20\nDocker: 23.0.3\n1.2安装前提 2 CPUs or more\n2GB of free memory\n20GB of free disk space\nInternet connection\nContainer or virtual machine manager, such as: Docker, QEMU, Hyperkit, Hyper-V, KVM, Parallels, Podman, VirtualBox, or VMware Fusion/Workstation\nlink: https://minikube.sigs.k8s.io/docs/start\n1.3过程概述 OS环境准备 下载并安装CRI 下载并安装minikube 运行一个示例来测试minikube 2.OS环境准备 2.1 关闭防火墙： # hostnamectl set-hostname minikube # systemctl stop firewalld # systemctl disable firewalld 2.2 关闭selinux # sed -i &#39;s/enforcing/disabled/&#39; /etc/selinux/config 2.3 关闭swap 删除swap那一行，或者注释掉\n">
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="Toggle Menu">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/"></a></h1>
+            <h2 class="site-description"></h2>
+        </div>
+    </header><ol class="menu" id="main-menu">
+        
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>Dark Mode</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            
+            
+            
+            <a href="/categories/%E6%8A%80%E6%9C%AF/" style="background-color: hsl(154, 60%, 84%); color: hsl(154, 60%, 15%);">
+                技术
+            </a>
+        
+            
+            
+            
+            <a href="/categories/centos/" style="background-color: hsl(113, 60%, 84%); color: hsl(113, 60%, 15%);">
+                CentOS
+            </a>
+        
+            
+            
+            
+            <a href="/categories/k8s/" style="background-color: hsl(343, 60%, 84%); color: hsl(343, 60%, 15%);">
+                K8s
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/posts/install-minikube/">安装minikube</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    
+    
+    
+    <footer class="article-meta">
+        
+            <div class="inline-meta">
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                    <time class="article-time--published" datetime='2023-04-11T18:59:37&#43;08:00'>Tuesday, April 11, 2023</time>
+                
+
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                    <time class="article-time--reading">
+                        2 minutes read
+                    </time>
+                
+            </div>
+        
+
+        
+
+        
+    </footer>
+    
+</div>
+
+</header>
+
+    
+
+    <section class="article-content">
+    
+    
+    <h1 id="centos79安装minikube">CentOS7.9安装minikube
+</h1><p>本文记录了在CentOS7.9上安装配置minikube的过程，目的是为了在单台机器上运行一个k8s的环境，而不需要创建一个k8s集群。</p>
+<h2 id="1版本及安装前提">1.版本及安装前提
+</h2><h3 id="11版本概述">1.1版本概述
+</h3><p>宿主机: Windows 10<br>
+虚拟机: VMware<br>
+虚拟机OS: CentOS7.9<br>
+MninKube: v1.30.1<br>
+Containerd: 1.6.20<br>
+Docker: 23.0.3</p>
+<h3 id="12安装前提">1.2安装前提
+</h3><p>2 CPUs or more<br>
+2GB of free memory<br>
+20GB of free disk space<br>
+Internet connection<br>
+Container or virtual machine manager, such as: Docker, QEMU, Hyperkit, Hyper-V, KVM, Parallels, Podman, VirtualBox, or VMware Fusion/Workstation<br>
+link: <a class="link" href="https://minikube.sigs.k8s.io/docs/start"  target="_blank" rel="noopener"
+    >https://minikube.sigs.k8s.io/docs/start</a></p>
+<h3 id="13过程概述">1.3过程概述
+</h3><ol>
+<li>OS环境准备</li>
+<li>下载并安装CRI</li>
+<li>下载并安装minikube</li>
+<li>运行一个示例来测试minikube</li>
+</ol>
+<h2 id="2os环境准备">2.OS环境准备
+</h2><h3 id="21-关闭防火墙">2.1 关闭防火墙：
+</h3><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl"><span class="c1"># hostnamectl set-hostname minikube</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># systemctl stop firewalld</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># systemctl disable firewalld</span>
+</span></span></code></pre></div><h3 id="22-关闭selinux">2.2 关闭selinux
+</h3><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl"><span class="c1"># sed -i &#39;s/enforcing/disabled/&#39; /etc/selinux/config</span>
+</span></span></code></pre></div><h3 id="23-关闭swap">2.3 关闭swap
+</h3><p>删除swap那一行，或者注释掉</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl"><span class="c1"># vim /etc/fstab </span>
+</span></span></code></pre></div><h3 id="24-将桥接的ipv4流量传递到iptables的链">2.4 将桥接的IPv4流量传递到iptables的链
+</h3><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl"><span class="c1"># cat &gt; /etc/sysctl.d/k8s.conf &lt;&lt; EOF</span>
+</span></span><span class="line"><span class="cl">net.bridge.bridge-nf-call-ip6tables <span class="o">=</span> <span class="m">1</span>
+</span></span><span class="line"><span class="cl">net.bridge.bridge-nf-call-iptables <span class="o">=</span> <span class="m">1</span>
+</span></span><span class="line"><span class="cl">EOF
+</span></span><span class="line"><span class="cl"><span class="c1"># sysctl --system</span>
+</span></span></code></pre></div><h2 id="3下载并安装cri">3.下载并安装CRI
+</h2><h3 id="31-安装docker">3.1 安装docker
+</h3><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl"><span class="c1"># wget https://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.repo -O /etc/yum.repos.d/docker-ce.repo</span>
+</span></span><span class="line"><span class="cl">......
+</span></span><span class="line"><span class="cl"><span class="c1"># yum -y install docker-ce</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># systemctl enable docker &amp;&amp; systemctl start docker</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># docker version</span>
+</span></span></code></pre></div><h3 id="32-配置镜像下载加速器">3.2 配置镜像下载加速器
+</h3><p>这里的地址使用的是个人的阿里云的镜像加速器</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl"><span class="c1"># cat &gt; /etc/docker/daemon.json &lt;&lt; EOF</span>
+</span></span><span class="line"><span class="cl"><span class="o">{</span>
+</span></span><span class="line"><span class="cl">  <span class="s2">&#34;registry-mirrors&#34;</span>: <span class="o">[</span><span class="s2">&#34;https://xxx.mirror.aliyuncs.com&#34;</span><span class="o">]</span>
+</span></span><span class="line"><span class="cl"><span class="o">}</span>
+</span></span><span class="line"><span class="cl">EOF
+</span></span><span class="line"><span class="cl"><span class="c1"># systemctl restart docker</span>
+</span></span></code></pre></div><h2 id="4下载并安装minikube">4.下载并安装minikube
+</h2><h3 id="41-添加yum软件源">4.1 添加YUM软件源
+</h3><p>先添加阿里云YUM软件源，不然没有yum源安装下面的软件包</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl"><span class="c1"># cat &gt; /etc/yum.repos.d/kubernetes.repo &lt;&lt; EOF</span>
+</span></span><span class="line"><span class="cl"><span class="o">[</span>kubernetes<span class="o">]</span>
+</span></span><span class="line"><span class="cl"><span class="nv">name</span><span class="o">=</span>Kubernetes
+</span></span><span class="line"><span class="cl"><span class="nv">baseurl</span><span class="o">=</span>https://mirrors.aliyun.com/kubernetes/yum/repos/kubernetes-el7-x86_64
+</span></span><span class="line"><span class="cl"><span class="nv">enabled</span><span class="o">=</span><span class="m">1</span>
+</span></span><span class="line"><span class="cl"><span class="nv">gpgcheck</span><span class="o">=</span><span class="m">0</span>
+</span></span><span class="line"><span class="cl"><span class="nv">repo_gpgcheck</span><span class="o">=</span><span class="m">0</span>
+</span></span><span class="line"><span class="cl"><span class="nv">gpgkey</span><span class="o">=</span>https://mirrors.aliyun.com/kubernetes/yum/doc/yum-key.gpg https://mirrors.aliyun.com/kubernetes/yum/doc/rpm-package-key.gpg
+</span></span><span class="line"><span class="cl">EOF
+</span></span></code></pre></div><h3 id="42-安装kubectl">4.2 安装kubectl
+</h3><p>安装kubectl，会在minikube安装完成后使用；将用户加到docker组</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl"><span class="c1"># yum install -y kubectl</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># usermod -aG docker $USER &amp;&amp; newgrp docker</span>
+</span></span></code></pre></div><h3 id="43-下载minikube">4.3 下载minikube
+</h3><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl"><span class="c1"># curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># install minikube-linux-amd64 /usr/local/bin/minikube</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># chmod +x /usr/local/bin/minikube</span>
+</span></span></code></pre></div><h3 id="44-运行安装minikube命令">4.4 运行安装minikube命令
+</h3><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl"><span class="c1"># minikube start --force --driver=docker --cni calico  --registry-mirror=https://registry.docker-cn.com --container-runtime=containerd</span>
+</span></span></code></pre></div><h2 id="5运行一个示例来测试minikube">5.运行一个示例来测试minikube
+</h2><h3 id="51-运行dashboard">5.1 运行dashboard
+</h3><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl"><span class="c1"># kubectl get pod -A</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># minikube addons list</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># minikube dashboard --url </span>
+</span></span></code></pre></div><h3 id="52-运行一个deploy来测试minikube">5.2 运行一个deploy来测试minikube
+</h3><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl"><span class="c1"># kubectl create deployment nginx --image=nginx</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># kubectl expose deployment nginx --port=80 --type=NodePort</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># kubectl get svc</span>
+</span></span><span class="line"><span class="cl">NAME                 TYPE        CLUSTER-IP     EXTERNAL-IP   PORT<span class="o">(</span>S<span class="o">)</span>        AGE
+</span></span><span class="line"><span class="cl">service/kubernetes   ClusterIP   10.96.0.1      &lt;none&gt;        443/TCP        5h13m
+</span></span><span class="line"><span class="cl">service/nginx        NodePort    10.105.88.53   &lt;none&gt;        80:30874/TCP   18s
+</span></span><span class="line"><span class="cl"><span class="c1"># minikube service list</span>
+</span></span><span class="line"><span class="cl"><span class="p">|</span>----------------------<span class="p">|</span>---------------------------<span class="p">|</span>--------------<span class="p">|</span>---------------------------<span class="p">|</span>
+</span></span><span class="line"><span class="cl"><span class="p">|</span>      NAMESPACE       <span class="p">|</span>           NAME            <span class="p">|</span> TARGET PORT  <span class="p">|</span>            URL            <span class="p">|</span>
+</span></span><span class="line"><span class="cl"><span class="p">|</span>----------------------<span class="p">|</span>---------------------------<span class="p">|</span>--------------<span class="p">|</span>---------------------------<span class="p">|</span>
+</span></span><span class="line"><span class="cl"><span class="p">|</span> default              <span class="p">|</span> kubernetes                <span class="p">|</span> No node port <span class="p">|</span>                           <span class="p">|</span>
+</span></span><span class="line"><span class="cl"><span class="p">|</span> default              <span class="p">|</span> nginx                     <span class="p">|</span>           <span class="m">80</span> <span class="p">|</span> http://192.168.49.2:32469 <span class="p">|</span>
+</span></span><span class="line"><span class="cl"><span class="p">|</span> kube-system          <span class="p">|</span> kube-dns                  <span class="p">|</span> No node port <span class="p">|</span>                           <span class="p">|</span>
+</span></span><span class="line"><span class="cl"><span class="p">|</span> kubernetes-dashboard <span class="p">|</span> dashboard-metrics-scraper <span class="p">|</span> No node port <span class="p">|</span>                           <span class="p">|</span>
+</span></span><span class="line"><span class="cl"><span class="p">|</span> kubernetes-dashboard <span class="p">|</span> kubernetes-dashboard      <span class="p">|</span> No node port <span class="p">|</span>                           <span class="p">|</span>
+</span></span><span class="line"><span class="cl"><span class="p">|</span>----------------------<span class="p">|</span>---------------------------<span class="p">|</span>--------------<span class="p">|</span>---------------------------<span class="p">|</span>
+</span></span></code></pre></div><p>通过 http://192.168.49.2:32469 可以正常访问nginx，代表minikube运行正常。</p>
+
+</section>
+
+
+    <footer class="article-meta article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/centos/">CentOS</a>
+        
+            <a href="/tags/k8s/">K8s</a>
+        
+            <a href="/tags/minikube/">Minikube</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+<aside>
+    <h2 class="section-title">Related content</h2>
+    <div class="subsection-list">
+        <div class="article-list--tile">
+            
+                
+<article class="">
+    <a href="/posts/install-k8s-on-centos79/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">CentOS7.9安装k8s集群</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/install-and-configure-private-harbor-registry/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">安装配置私有仓库harbor</h2>
+        </div>
+    </a>
+</article>
+            
+        </div>
+    </div>
+</aside>
+
+     
+    
+        
+        <div class="disqus-container">
+    
+</div>
+
+<style>
+    .disqus-container {
+        background-color: var(--card-background);
+        border-radius: var(--card-border-radius);
+        box-shadow: var(--shadow-l1);
+        padding: var(--card-padding);
+    }
+</style>
+
+<script>
+    window.addEventListener('onColorSchemeChange', (e) => {
+        if (typeof DISQUS == 'object') {
+            DISQUS.reset({
+                reload: true
+            });
+        }
+    })
+</script>
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+        2026 
+    </section>
+    
+    <section class="powerby">
+        Built with <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> <br />
+        Theme <b><a href="https://github.com/CaiJimmy/hugo-theme-stack" target="_blank" rel="noopener" data-version="4.0.0">Stack</a></b> designed by <a href="https://jimmycai.com" target="_blank" rel="noopener">Jimmy</a>
+    </section>
+</footer>
+
+
+    
+
+
+
+<script type="module">
+    import gallery from '\/ts\/gallery.js';
+
+    const articleContent = document.querySelector('.article-content');
+    const shouldLoad = articleContent && (articleContent.querySelectorAll('figure').length > 0 || articleContent.querySelectorAll('img.gallery-image').length > 0);
+    
+    if (shouldLoad) {
+        gallery(articleContent);
+
+        const PhotoSwipeLightbox = (await import("https:\/\/cdn.jsdelivr.net\/npm\/photoswipe@5.4.4\/dist\/photoswipe-lightbox.esm.min.js")).default;
+        const styleHref = "https:\/\/cdn.jsdelivr.net\/npm\/photoswipe@5.4.4\/dist\/photoswipe.css";
+
+        const styleTag = document.createElement('link');
+        styleTag.rel = 'stylesheet';
+        styleTag.href = styleHref;
+        document.head.appendChild(styleTag);
+
+        const lightbox = new PhotoSwipeLightbox({
+            gallerySelector: '.article-content',
+            childSelector: 'figure a.image-link',
+            pswpModule: () => import("https:\/\/cdn.jsdelivr.net\/npm\/photoswipe@5.4.4\/dist\/photoswipe.esm.min.js")
+        });
+        lightbox.init();
+    }
+</script>
+    
+
+            </main>
+        </div>
+        
+<script type="text/javascript" src="/ts/main.3ee067593935e3e391e923f2aa079d2b8173732410e5e89b88be5ea1545eeff7.js" defer></script>
+
+
+    </body>
+</html>

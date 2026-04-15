@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+    <head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="1. 网络概述 1.1 OSI和TCP/IP模型 有2种网络模式：OSI和TCP/IP\nOSI：\nApplicatoin: 应用层，例如httpd/ssh\nPresentation: 展示层，为应用处理所有的格式化和编码解码\nSession: 会话层，应用层建立连接及期需要的东西\nTransport: 传输层，处理数据包的分割，以及TCP/UDP的发包\nNetwork: 网络层，处理网络中的路由的问题\nData Link: 数据链路层，处理处理MAC地址\nPhyscial: 物理层，物理布线等网络设备\nTCP/IP：\nApplication: OSI中的Applicatoin+Presentation+Session\nTransport: OSI中的Transport\nInternet: OSI中的Network\nNetwork Access: OSI中的Data Link+Physcial\n1.2 数据是如何传输的 第一步：应用的数据包通过Applicatoin、Presentation、Session；\n第二步：在Transport被分割为很多小包；\n第三步：这些小包通过Network进行路由；\n第四步：然后进入Data Link、Physcial，也就是网线上传输。\n2. 验证网络连通性 2.1 工具 ping 通过发包来检查连接性，并记录包的丢失率和响应时间。还可以用ping做压力测试\ntelent 通过自定义的端口来打开一个TCP连接\nncat(nc) 测试TCP、UDP、listen\n2.2 ping ping不能指定端口\n//在服务器A上(172.31.111.108)： $ dnf reinstall httpd -y $ systemctl enable --now httpd $ curl localhost //在服务器B上： $ ping 172.31.111.108 $ ping 172.31.111.108 -c 5\t//ping 5次 $ ping 172.31.111.108 -f\t//基于压力测试来测试连接的可靠性，这会用数据包来flood服务器，来看服务器的反应，用Ctrl+c结束 $ ping 172.31.111.108 -s 1024\t//指定数据包的大小 2.3 telnet telnet只能检查TCP连接\n">
+<title>Linux诊断和故障排除系列(八) -- 网络问题诊断</title>
+
+
+<link rel="canonical" href="//localhost:1313/posts/linux-diagnosis-and-troubleshooting-series-8-network-issues/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap">
+
+
+<link rel="stylesheet" href="/scss/style.min.389e156f5e9bb13df5a924cfa99dfb9c39f3e01e68d9e146cd65bdae963be145.css"><meta property='og:title' content="Linux诊断和故障排除系列(八) -- 网络问题诊断">
+<meta property='og:description' content="1. 网络概述 1.1 OSI和TCP/IP模型 有2种网络模式：OSI和TCP/IP\nOSI：\nApplicatoin: 应用层，例如httpd/ssh\nPresentation: 展示层，为应用处理所有的格式化和编码解码\nSession: 会话层，应用层建立连接及期需要的东西\nTransport: 传输层，处理数据包的分割，以及TCP/UDP的发包\nNetwork: 网络层，处理网络中的路由的问题\nData Link: 数据链路层，处理处理MAC地址\nPhyscial: 物理层，物理布线等网络设备\nTCP/IP：\nApplication: OSI中的Applicatoin+Presentation+Session\nTransport: OSI中的Transport\nInternet: OSI中的Network\nNetwork Access: OSI中的Data Link+Physcial\n1.2 数据是如何传输的 第一步：应用的数据包通过Applicatoin、Presentation、Session；\n第二步：在Transport被分割为很多小包；\n第三步：这些小包通过Network进行路由；\n第四步：然后进入Data Link、Physcial，也就是网线上传输。\n2. 验证网络连通性 2.1 工具 ping 通过发包来检查连接性，并记录包的丢失率和响应时间。还可以用ping做压力测试\ntelent 通过自定义的端口来打开一个TCP连接\nncat(nc) 测试TCP、UDP、listen\n2.2 ping ping不能指定端口\n//在服务器A上(172.31.111.108)： $ dnf reinstall httpd -y $ systemctl enable --now httpd $ curl localhost //在服务器B上： $ ping 172.31.111.108 $ ping 172.31.111.108 -c 5\t//ping 5次 $ ping 172.31.111.108 -f\t//基于压力测试来测试连接的可靠性，这会用数据包来flood服务器，来看服务器的反应，用Ctrl+c结束 $ ping 172.31.111.108 -s 1024\t//指定数据包的大小 2.3 telnet telnet只能检查TCP连接\n">
+<meta property='og:url' content='//localhost:1313/posts/linux-diagnosis-and-troubleshooting-series-8-network-issues/'>
+<meta property='og:site_name' content=''>
+<meta property='og:type' content='article'><meta property='article:section' content='Posts' /><meta property='article:tag' content='Linux' /><meta property='article:tag' content='Linux诊断和故障排除' /><meta property='article:tag' content='网络问题诊断' /><meta property='article:published_time' content='2024-07-08T20:02:29&#43;08:00'/><meta property='article:modified_time' content='2024-07-08T20:02:29&#43;08:00'/>
+<meta name="twitter:title" content="Linux诊断和故障排除系列(八) -- 网络问题诊断">
+<meta name="twitter:description" content="1. 网络概述 1.1 OSI和TCP/IP模型 有2种网络模式：OSI和TCP/IP\nOSI：\nApplicatoin: 应用层，例如httpd/ssh\nPresentation: 展示层，为应用处理所有的格式化和编码解码\nSession: 会话层，应用层建立连接及期需要的东西\nTransport: 传输层，处理数据包的分割，以及TCP/UDP的发包\nNetwork: 网络层，处理网络中的路由的问题\nData Link: 数据链路层，处理处理MAC地址\nPhyscial: 物理层，物理布线等网络设备\nTCP/IP：\nApplication: OSI中的Applicatoin+Presentation+Session\nTransport: OSI中的Transport\nInternet: OSI中的Network\nNetwork Access: OSI中的Data Link+Physcial\n1.2 数据是如何传输的 第一步：应用的数据包通过Applicatoin、Presentation、Session；\n第二步：在Transport被分割为很多小包；\n第三步：这些小包通过Network进行路由；\n第四步：然后进入Data Link、Physcial，也就是网线上传输。\n2. 验证网络连通性 2.1 工具 ping 通过发包来检查连接性，并记录包的丢失率和响应时间。还可以用ping做压力测试\ntelent 通过自定义的端口来打开一个TCP连接\nncat(nc) 测试TCP、UDP、listen\n2.2 ping ping不能指定端口\n//在服务器A上(172.31.111.108)： $ dnf reinstall httpd -y $ systemctl enable --now httpd $ curl localhost //在服务器B上： $ ping 172.31.111.108 $ ping 172.31.111.108 -c 5\t//ping 5次 $ ping 172.31.111.108 -f\t//基于压力测试来测试连接的可靠性，这会用数据包来flood服务器，来看服务器的反应，用Ctrl+c结束 $ ping 172.31.111.108 -s 1024\t//指定数据包的大小 2.3 telnet telnet只能检查TCP连接\n">
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="Toggle Menu">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/"></a></h1>
+            <h2 class="site-description"></h2>
+        </div>
+    </header><ol class="menu" id="main-menu">
+        
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>Dark Mode</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            
+            
+            
+            <a href="/categories/%E6%8A%80%E6%9C%AF/" style="background-color: hsl(154, 60%, 84%); color: hsl(154, 60%, 15%);">
+                技术
+            </a>
+        
+            
+            
+            
+            <a href="/categories/linux/" style="background-color: hsl(237, 60%, 84%); color: hsl(237, 60%, 15%);">
+                Linux
+            </a>
+        
+            
+            
+            
+            <a href="/categories/linux%E8%AF%8A%E6%96%AD%E5%92%8C%E6%95%85%E9%9A%9C%E6%8E%92%E9%99%A4/" style="background-color: hsl(283, 60%, 84%); color: hsl(283, 60%, 15%);">
+                Linux诊断和故障排除
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/posts/linux-diagnosis-and-troubleshooting-series-8-network-issues/">Linux诊断和故障排除系列(八) -- 网络问题诊断</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    
+    
+    
+    <footer class="article-meta">
+        
+            <div class="inline-meta">
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                    <time class="article-time--published" datetime='2024-07-08T20:02:29&#43;08:00'>Monday, July 8, 2024</time>
+                
+
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                    <time class="article-time--reading">
+                        3 minutes read
+                    </time>
+                
+            </div>
+        
+
+        
+
+        
+    </footer>
+    
+</div>
+
+</header>
+
+    
+
+    <section class="article-content">
+    
+    
+    <h1 id="1-网络概述">1. 网络概述
+</h1><h2 id="11-osi和tcpip模型">1.1 OSI和TCP/IP模型
+</h2><p>有2种网络模式：OSI和TCP/IP<br>
+OSI：<br>
+Applicatoin: 应用层，例如httpd/ssh<br>
+Presentation: 展示层，为应用处理所有的格式化和编码解码<br>
+Session: 会话层，应用层建立连接及期需要的东西<br>
+Transport: 传输层，处理数据包的分割，以及TCP/UDP的发包<br>
+Network: 网络层，处理网络中的路由的问题<br>
+Data Link: 数据链路层，处理处理MAC地址<br>
+Physcial: 物理层，物理布线等网络设备</p>
+<p>TCP/IP：<br>
+Application: OSI中的Applicatoin+Presentation+Session<br>
+Transport: OSI中的Transport<br>
+Internet: OSI中的Network<br>
+Network Access: OSI中的Data Link+Physcial<br>
+<img class="gallery-image" data-flex-basis="688px" data-flex-grow="286" height="298" loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px" src="/posts/linux-diagnosis-and-troubleshooting-series-8-network-issues/Linux_pd_08_osi_tcpip.png" srcset="/posts/linux-diagnosis-and-troubleshooting-series-8-network-issues/Linux_pd_08_osi_tcpip_hu_ad373da58506b0d9.png 800w, /posts/linux-diagnosis-and-troubleshooting-series-8-network-issues/Linux_pd_08_osi_tcpip.png 855w" width="855"></p>
+<h2 id="12-数据是如何传输的">1.2 数据是如何传输的
+</h2><p>第一步：应用的数据包通过Applicatoin、Presentation、Session；<br>
+第二步：在Transport被分割为很多小包；<br>
+第三步：这些小包通过Network进行路由；<br>
+第四步：然后进入Data Link、Physcial，也就是网线上传输。</p>
+<h1 id="2-验证网络连通性">2. 验证网络连通性
+</h1><h2 id="21-工具">2.1 工具
+</h2><p>ping 通过发包来检查连接性，并记录包的丢失率和响应时间。还可以用ping做压力测试<br>
+telent 通过自定义的端口来打开一个TCP连接<br>
+ncat(nc) 测试TCP、UDP、listen</p>
+<h2 id="22-ping">2.2 ping
+</h2><p>ping不能指定端口</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl">//在服务器A上<span class="o">(</span>172.31.111.108<span class="o">)</span>：
+</span></span><span class="line"><span class="cl">$ dnf reinstall httpd -y
+</span></span><span class="line"><span class="cl">$ systemctl <span class="nb">enable</span> --now httpd
+</span></span><span class="line"><span class="cl">$ curl localhost
+</span></span><span class="line"><span class="cl">//在服务器B上：
+</span></span><span class="line"><span class="cl">$ ping 172.31.111.108
+</span></span><span class="line"><span class="cl">$ ping 172.31.111.108 -c 5			//ping 5次
+</span></span><span class="line"><span class="cl">$ ping 172.31.111.108 -f				//基于压力测试来测试连接的可靠性，这会用数据包来flood服务器，来看服务器的反应，用Ctrl+c结束
+</span></span><span class="line"><span class="cl">$ ping 172.31.111.108 -s 1024		//指定数据包的大小
+</span></span></code></pre></div><h2 id="23-telnet">2.3 telnet
+</h2><p>telnet只能检查TCP连接</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl">$ dnf install telnet -y
+</span></span><span class="line"><span class="cl">$ telnet 172.31.101.193 <span class="m">80</span>      //通过Telnet来测试端口
+</span></span><span class="line"><span class="cl">Trying 172.31.101.193...
+</span></span><span class="line"><span class="cl">Connected to 172.31.101.193.
+</span></span><span class="line"><span class="cl">Escape character is <span class="s1">&#39;^]&#39;</span>.       //可以成功连接，强制退出吧
+</span></span></code></pre></div><h2 id="24-ncatnc">2.4 ncat(nc)
+</h2><p>ncat(nc) 测试TCP、UDP、listen<br>
+测试TCP:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl">//在服务器A上<span class="o">(</span>172.31.111.108<span class="o">)</span>：
+</span></span><span class="line"><span class="cl">$ dnf install nmap-ncat -y
+</span></span><span class="line"><span class="cl">$ nc -l 443				//打开一个443监听端口，-l代表监听。默认使用的是TCP协议
+</span></span><span class="line"><span class="cl">//在服务器B上：
+</span></span><span class="line"><span class="cl">$ dnf install nmap-ncat -y
+</span></span><span class="line"><span class="cl">$ nc 172.31.111.108 443				//通过443端口连接到对方，然后发消息就会在对方屏幕上显示了
+</span></span><span class="line"><span class="cl">Hello                   //这时在对方屏幕上会显示Hello
+</span></span><span class="line"><span class="cl">                    //Ctrl+c会让两个服务器都退出nc程序    
+</span></span></code></pre></div><p>测试UDP:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl">//在服务器A上<span class="o">(</span>172.31.111.108<span class="o">)</span>：
+</span></span><span class="line"><span class="cl">$ dnf install nmap-ncat -y
+</span></span><span class="line"><span class="cl">$ nc -u -l 443				//打开一个443监听端口，-l代表监听。-u代表使用UDP
+</span></span><span class="line"><span class="cl">//在服务器B上：
+</span></span><span class="line"><span class="cl">$ dnf install nmap-ncat -y
+</span></span><span class="line"><span class="cl">$ nc -u 172.31.111.108 443				//通过443端口连接到对方，然后发消息就会在对方屏幕上显示了
+</span></span><span class="line"><span class="cl">Hello                   //这时在对方屏幕上会显示Hello
+</span></span><span class="line"><span class="cl">                    //Ctrl+c会让两个服务器都退出nc程序    
+</span></span></code></pre></div><h1 id="3-修复连接问题">3. 修复连接问题
+</h1><h2 id="31-修复连接问题的思路">3.1 修复连接问题的思路
+</h2><p>如果有连接问题，先使用ping, telnet, nc来检查一下<br>
+能否访问端口？<br>
+能否访问那个网络？<br>
+能否访问网络的其他节点？<br>
+是否有防火墙？</p>
+<h2 id="32-检查防火墙">3.2 检查防火墙
+</h2><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl">$ systemctl status firewalld		//检查防火墙状态
+</span></span><span class="line"><span class="cl">$ dnf install firewalld
+</span></span><span class="line"><span class="cl">$ systemctl start firewalld 
+</span></span><span class="line"><span class="cl">$ firewall-cmd --list-all			//显示防火墙规则
+</span></span><span class="line"><span class="cl">$ systemctl status httpd			//检查httpd状态
+</span></span><span class="line"><span class="cl">$ curl localhost							//检查从本机能否访问httpd，一切正常
+</span></span><span class="line"><span class="cl">//然后从其他地方访问一下httpd，比如另一台电脑的浏览器，发现不好使
+</span></span><span class="line"><span class="cl">$ firewall-cmd -zone<span class="o">=</span>public --add-port-80/tcp		
+</span></span><span class="line"><span class="cl">$ firewall-cmd -zone<span class="o">=</span>public --add-service<span class="o">=</span>http
+</span></span><span class="line"><span class="cl">$ firewall-cmd --list-all			//显示防火墙规则，这时有http了
+</span></span><span class="line"><span class="cl">//然后从其他地方访问一下httpd，比如另一台电脑的浏览器，一切正常了
+</span></span><span class="line"><span class="cl">$ firewall-cmd -zone<span class="o">=</span>public --add-service<span class="o">=</span>http --permanent		//永久添加，不然重启就不好使了
+</span></span><span class="line"><span class="cl">$ firewall-cmd --runtime-to-permanent		//将现有的配置变永久的
+</span></span></code></pre></div><h2 id="33-网络工具">3.3 网络工具
+</h2><p>bind-utils //安装这个包，获得的dig和host命令(name server相关)<br>
+ip/nmcli //显示或更新网络配置<br>
+bash-completion		//Bash shell的扩展，它提供了命令行自动补全功能。</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl">$ cat /etc/udev/rules.d/70-persistent-net.rules			//管理网络设备名称持久性的规则文件，查看使用的网络设备等信息
+</span></span><span class="line"><span class="cl">$ cat /etc/resolv.conf				//查看name server 
+</span></span><span class="line"><span class="cl">$ dnf install bind-utils -y
+</span></span><span class="line"><span class="cl">$ dig duckduckgo.com				//查看使用的name server，在命令输出的最下面，有SERVER也就是name server
+</span></span><span class="line"><span class="cl">$ ip a 				//显示网络配置信息
+</span></span><span class="line"><span class="cl">$ ip address show dev eth0
+</span></span><span class="line"><span class="cl">$ ip a s dev eth0			//显示设备eth0信息
+</span></span><span class="line"><span class="cl">$ ip r s dev eth0			//显示设备eth0路由信息
+</span></span><span class="line"><span class="cl">$ ip r s default			//显示默认路由
+</span></span><span class="line"><span class="cl">$ ip r d dev eth0			//第一个d代表delete
+</span></span><span class="line"><span class="cl">$ ip r d default			//删除默认路由
+</span></span><span class="line"><span class="cl">$ ip r a default via 10.1.1.1		//添加默认路由
+</span></span><span class="line"><span class="cl">$ ip a a dev eth1 10.0.2.10/24	//添加地址
+</span></span><span class="line"><span class="cl">$ dnf install bash-completion -y	//Bash shell的扩展，它提供了命令行自动补全功能。
+</span></span><span class="line"><span class="cl">$ nmcli
+</span></span><span class="line"><span class="cl">$ nmcli device show 	//显示所有网络设备信息
+</span></span><span class="line"><span class="cl">$ nmcli d show 	//显示所有网络设备信息
+</span></span><span class="line"><span class="cl">$ nmcli connect show		//显示连接信息，和ip a差不多
+</span></span><span class="line"><span class="cl">$ nmcli c show
+</span></span><span class="line"><span class="cl">$ nmlci c show System<span class="se">\ </span>eth0		//显示指定设备信息
+</span></span><span class="line"><span class="cl">$ nmlci c show System<span class="se">\ </span>eth0	<span class="p">|</span> grep dns	//显示指定设备信息，并过滤
+</span></span><span class="line"><span class="cl">$ nmlci c show System<span class="se">\ </span>eth0	<span class="p">|</span> grep ipv6	//显示指定设备信息，并过滤
+</span></span></code></pre></div><h1 id="4-检查网络流量以帮助进行故障排除">4. 检查网络流量以帮助进行故障排除
+</h1><p>tcpdump/wireshark: 通过终端捕获网络流量。<br>
+两者非常像，都使用PCAP(Packet Capture API)抓取网络数据包；使用相同的底层库；使用相同的格式化和过滤功能。tcpdump的所有命令基本可以与tshark(wireshark的CLI)互换，他们基本有相同的标志等。<br>
+tcpdump -i eth0 -c 5 -w tcpdump.pcap<br>
+tshark -i eth0 -c 5 -w tshark.pcap<br>
+-i定义接口，-w写到自定义文件，-c定义抓取多少个数据包，-r从自定义文件读取</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl">//在第2台服务器上：
+</span></span><span class="line"><span class="cl">$ watch -n <span class="m">5</span> <span class="s2">&#34;curl 172.31.101.193&#34;</span>		//每5秒刷新一次
+</span></span><span class="line"><span class="cl">//在第1台服务器上：
+</span></span><span class="line"><span class="cl">$ dnf install tcpdump wireshark
+</span></span><span class="line"><span class="cl">$ tcpdump -i eth0								//抓取eth0上的所有数据<span class="o">(</span>流量<span class="o">)</span>
+</span></span><span class="line"><span class="cl">$ tshark -i eth0								//同上
+</span></span><span class="line"><span class="cl">$ tshark -i eth0 -c <span class="m">5</span> -w /tmp/file.pcap		//抓取5个数据包，文件是二进制的
+</span></span><span class="line"><span class="cl">$ tcpdump -i eth0 -c <span class="m">5</span> -w tcpdump.pcap      //同上
+</span></span><span class="line"><span class="cl">$ tcpdump -r /tmp/file.pcap			        //读取文件，代表tcpdump和tshark可以互相替换
+</span></span><span class="line"><span class="cl">$ tshark -i eth0 -c <span class="m">5</span> -w /tmp/file.pcap	<span class="s1">&#39;port 80&#39;</span>		//抓取5个数据包，只抓取80端口的
+</span></span><span class="line"><span class="cl">$ tshark -r /tmp/file.pcap			        //读取文件
+</span></span></code></pre></div>
+</section>
+
+
+    <footer class="article-meta article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/linux/">Linux</a>
+        
+            <a href="/tags/linux%E8%AF%8A%E6%96%AD%E5%92%8C%E6%95%85%E9%9A%9C%E6%8E%92%E9%99%A4/">Linux诊断和故障排除</a>
+        
+            <a href="/tags/%E7%BD%91%E7%BB%9C%E9%97%AE%E9%A2%98%E8%AF%8A%E6%96%AD/">网络问题诊断</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+<aside>
+    <h2 class="section-title">Related content</h2>
+    <div class="subsection-list">
+        <div class="article-list--tile">
+            
+                
+<article class="">
+    <a href="/posts/linux-diagnosis-and-troubleshooting-series-7-application-diagnosis/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux诊断和故障排除系列(七) -- 应用程序诊断</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/linux-diagnosis-and-troubleshooting-series-6-fix-packages-and-package-manager/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux诊断和故障排除系列(六) -- 修复软件包及管理器</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/linux-diagnosis-and-troubleshooting-series-5-fix-iscsi/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux诊断和故障排除系列(五) -- 修复iSCSI</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/linux-diagnosis-and-troubleshooting-series-4-fix-filesystem/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux诊断和故障排除系列(四) -- 修复文件系统</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/linux-diagnosis-and-troubleshooting-series-3-reset-root-password/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux诊断和故障排除系列(三) -- 重置root密码</h2>
+        </div>
+    </a>
+</article>
+            
+        </div>
+    </div>
+</aside>
+
+     
+    
+        
+        <div class="disqus-container">
+    
+</div>
+
+<style>
+    .disqus-container {
+        background-color: var(--card-background);
+        border-radius: var(--card-border-radius);
+        box-shadow: var(--shadow-l1);
+        padding: var(--card-padding);
+    }
+</style>
+
+<script>
+    window.addEventListener('onColorSchemeChange', (e) => {
+        if (typeof DISQUS == 'object') {
+            DISQUS.reset({
+                reload: true
+            });
+        }
+    })
+</script>
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+        2026 
+    </section>
+    
+    <section class="powerby">
+        Built with <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> <br />
+        Theme <b><a href="https://github.com/CaiJimmy/hugo-theme-stack" target="_blank" rel="noopener" data-version="4.0.0">Stack</a></b> designed by <a href="https://jimmycai.com" target="_blank" rel="noopener">Jimmy</a>
+    </section>
+</footer>
+
+
+    
+
+
+
+<script type="module">
+    import gallery from '\/ts\/gallery.js';
+
+    const articleContent = document.querySelector('.article-content');
+    const shouldLoad = articleContent && (articleContent.querySelectorAll('figure').length > 0 || articleContent.querySelectorAll('img.gallery-image').length > 0);
+    
+    if (shouldLoad) {
+        gallery(articleContent);
+
+        const PhotoSwipeLightbox = (await import("https:\/\/cdn.jsdelivr.net\/npm\/photoswipe@5.4.4\/dist\/photoswipe-lightbox.esm.min.js")).default;
+        const styleHref = "https:\/\/cdn.jsdelivr.net\/npm\/photoswipe@5.4.4\/dist\/photoswipe.css";
+
+        const styleTag = document.createElement('link');
+        styleTag.rel = 'stylesheet';
+        styleTag.href = styleHref;
+        document.head.appendChild(styleTag);
+
+        const lightbox = new PhotoSwipeLightbox({
+            gallerySelector: '.article-content',
+            childSelector: 'figure a.image-link',
+            pswpModule: () => import("https:\/\/cdn.jsdelivr.net\/npm\/photoswipe@5.4.4\/dist\/photoswipe.esm.min.js")
+        });
+        lightbox.init();
+    }
+</script>
+    
+
+            </main>
+        </div>
+        
+<script type="text/javascript" src="/ts/main.3ee067593935e3e391e923f2aa079d2b8173732410e5e89b88be5ea1545eeff7.js" defer></script>
+
+
+    </body>
+</html>

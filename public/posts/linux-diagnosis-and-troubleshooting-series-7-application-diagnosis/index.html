@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+    <head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="1. 确定第三方软件的库依赖关系 1.1 什么是库依赖 第三方软件和第一方软件等，会共享很多function，而这些通常是通过库来实现的，所以将这些通用代码(例如读、写、打开文件等)放到一个共享库中，然后每个APP访问这个共享库。 例如第三方APP是nginx，第一方APP是pmlogger，这两个APP会共享一些不同的库，例如libcrypto。\n为了让nginx和pmlogger访问libcrypto，使用的是ld-linker工具，它负责加载共享库，并将共享库映射到内存中，然后APP就可以访问这些共享库了。\n1.2 查询使用了哪些库 ldconfig -p //查看在内存cache中，哪些库是可用的\nldd //显示共享库依赖，需要提供 可执行文件的全路径\nldd $(which python3) //将which python3命令的输出，作为ldd命令的参数\n$ ldconfig -p | more 298 libs found in cache `/etc/ld.so.cache` p11-kit-trust.so (libc6,x86-64) =&gt; /lib64/p11-kit-trust.so libz.so.1 (libc6,x86-64) =&gt; /lib64/libz.so.1 libyaml-0.so.2 (libc6,x86-64) =&gt; /lib64/libyaml-0.so.2 ...... $ which python3 /bin/python3 $ ldd /bin/python3 linux-vdso.so.1 =&gt; (0x00007ffd177ad000) libpython3.6m.so.1.0 =&gt; /lib64/libpython3.6m.so.1.0 (0x00007fcb5945e000) ...... $ ldd $(which python3) //功能等同于上面二条命令 1.3 共享库问题 共享库问题，如果共享库有问题，可能就会输出共享库名，但库的位置可能无法提供(例如闪烁？)\ndnf whatprovides liblzma //哪个软件包安装了这个库，然后 安装软件包就OK了\n$ ldd /bin/python3 linux-vdso.so.1 =&gt; (0x00007ffd177ad000) libpython3.6m.so.1.0 =&gt; /lib64/libpython3.6m.so.1.0 (0x00007fcb5945e000) $ dnf whatprovides liblzma\t//这样可能什么也不返回 $ dnf whatprovides *liblzma*\t//加通配符，这样可能返回太多，包括文档之类的 $ yum whatprovides *libc.so*|wc 595 1598 19436 $ dnf whatprovides */liblzma.so*\t//库都是 .so的， $ yum whatprovides */libc.so*|wc 222 508 5008 $ dnf reinstall xz-devel //用dnf/yum重新安装这个包就可以了 2. 确定应用程序是否存在内存泄漏 并不是解决内存泄露，而是发现内存泄露并生成报告，从而让开发去处理。\nvalgrind: Linux可执行文件的debugging和profiling套件，主要用于检测 C 和 C++ 程序中的内存问题。\n&ndash;tool=memcheck //内存工具(也是默认的，不定义也是这个)\n&ndash;log-file=\t//输出到自定义文件\n&ndash;leak-check=full //检查所有内存泄露，而不是占用额外的内存，这将提供完整内存泄露细节\n(对于其他语言，Java内存泄露检测工具：VisualVM：(jvisualvm.exe)。Python内存泄露检测工具：memory_profiler。Go语言内存泄露检测工具：go-leak。)\n">
+<title>Linux诊断和故障排除系列(七) -- 应用程序诊断</title>
+
+
+<link rel="canonical" href="//localhost:1313/posts/linux-diagnosis-and-troubleshooting-series-7-application-diagnosis/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap">
+
+
+<link rel="stylesheet" href="/scss/style.min.389e156f5e9bb13df5a924cfa99dfb9c39f3e01e68d9e146cd65bdae963be145.css"><meta property='og:title' content="Linux诊断和故障排除系列(七) -- 应用程序诊断">
+<meta property='og:description' content="1. 确定第三方软件的库依赖关系 1.1 什么是库依赖 第三方软件和第一方软件等，会共享很多function，而这些通常是通过库来实现的，所以将这些通用代码(例如读、写、打开文件等)放到一个共享库中，然后每个APP访问这个共享库。 例如第三方APP是nginx，第一方APP是pmlogger，这两个APP会共享一些不同的库，例如libcrypto。\n为了让nginx和pmlogger访问libcrypto，使用的是ld-linker工具，它负责加载共享库，并将共享库映射到内存中，然后APP就可以访问这些共享库了。\n1.2 查询使用了哪些库 ldconfig -p //查看在内存cache中，哪些库是可用的\nldd //显示共享库依赖，需要提供 可执行文件的全路径\nldd $(which python3) //将which python3命令的输出，作为ldd命令的参数\n$ ldconfig -p | more 298 libs found in cache `/etc/ld.so.cache` p11-kit-trust.so (libc6,x86-64) =&gt; /lib64/p11-kit-trust.so libz.so.1 (libc6,x86-64) =&gt; /lib64/libz.so.1 libyaml-0.so.2 (libc6,x86-64) =&gt; /lib64/libyaml-0.so.2 ...... $ which python3 /bin/python3 $ ldd /bin/python3 linux-vdso.so.1 =&gt; (0x00007ffd177ad000) libpython3.6m.so.1.0 =&gt; /lib64/libpython3.6m.so.1.0 (0x00007fcb5945e000) ...... $ ldd $(which python3) //功能等同于上面二条命令 1.3 共享库问题 共享库问题，如果共享库有问题，可能就会输出共享库名，但库的位置可能无法提供(例如闪烁？)\ndnf whatprovides liblzma //哪个软件包安装了这个库，然后 安装软件包就OK了\n$ ldd /bin/python3 linux-vdso.so.1 =&gt; (0x00007ffd177ad000) libpython3.6m.so.1.0 =&gt; /lib64/libpython3.6m.so.1.0 (0x00007fcb5945e000) $ dnf whatprovides liblzma\t//这样可能什么也不返回 $ dnf whatprovides *liblzma*\t//加通配符，这样可能返回太多，包括文档之类的 $ yum whatprovides *libc.so*|wc 595 1598 19436 $ dnf whatprovides */liblzma.so*\t//库都是 .so的， $ yum whatprovides */libc.so*|wc 222 508 5008 $ dnf reinstall xz-devel //用dnf/yum重新安装这个包就可以了 2. 确定应用程序是否存在内存泄漏 并不是解决内存泄露，而是发现内存泄露并生成报告，从而让开发去处理。\nvalgrind: Linux可执行文件的debugging和profiling套件，主要用于检测 C 和 C++ 程序中的内存问题。\n&ndash;tool=memcheck //内存工具(也是默认的，不定义也是这个)\n&ndash;log-file=\t//输出到自定义文件\n&ndash;leak-check=full //检查所有内存泄露，而不是占用额外的内存，这将提供完整内存泄露细节\n(对于其他语言，Java内存泄露检测工具：VisualVM：(jvisualvm.exe)。Python内存泄露检测工具：memory_profiler。Go语言内存泄露检测工具：go-leak。)\n">
+<meta property='og:url' content='//localhost:1313/posts/linux-diagnosis-and-troubleshooting-series-7-application-diagnosis/'>
+<meta property='og:site_name' content=''>
+<meta property='og:type' content='article'><meta property='article:section' content='Posts' /><meta property='article:tag' content='Linux' /><meta property='article:tag' content='Linux诊断和故障排除' /><meta property='article:tag' content='应用程序诊断' /><meta property='article:published_time' content='2024-07-07T20:02:29&#43;08:00'/><meta property='article:modified_time' content='2024-07-07T20:02:29&#43;08:00'/>
+<meta name="twitter:title" content="Linux诊断和故障排除系列(七) -- 应用程序诊断">
+<meta name="twitter:description" content="1. 确定第三方软件的库依赖关系 1.1 什么是库依赖 第三方软件和第一方软件等，会共享很多function，而这些通常是通过库来实现的，所以将这些通用代码(例如读、写、打开文件等)放到一个共享库中，然后每个APP访问这个共享库。 例如第三方APP是nginx，第一方APP是pmlogger，这两个APP会共享一些不同的库，例如libcrypto。\n为了让nginx和pmlogger访问libcrypto，使用的是ld-linker工具，它负责加载共享库，并将共享库映射到内存中，然后APP就可以访问这些共享库了。\n1.2 查询使用了哪些库 ldconfig -p //查看在内存cache中，哪些库是可用的\nldd //显示共享库依赖，需要提供 可执行文件的全路径\nldd $(which python3) //将which python3命令的输出，作为ldd命令的参数\n$ ldconfig -p | more 298 libs found in cache `/etc/ld.so.cache` p11-kit-trust.so (libc6,x86-64) =&gt; /lib64/p11-kit-trust.so libz.so.1 (libc6,x86-64) =&gt; /lib64/libz.so.1 libyaml-0.so.2 (libc6,x86-64) =&gt; /lib64/libyaml-0.so.2 ...... $ which python3 /bin/python3 $ ldd /bin/python3 linux-vdso.so.1 =&gt; (0x00007ffd177ad000) libpython3.6m.so.1.0 =&gt; /lib64/libpython3.6m.so.1.0 (0x00007fcb5945e000) ...... $ ldd $(which python3) //功能等同于上面二条命令 1.3 共享库问题 共享库问题，如果共享库有问题，可能就会输出共享库名，但库的位置可能无法提供(例如闪烁？)\ndnf whatprovides liblzma //哪个软件包安装了这个库，然后 安装软件包就OK了\n$ ldd /bin/python3 linux-vdso.so.1 =&gt; (0x00007ffd177ad000) libpython3.6m.so.1.0 =&gt; /lib64/libpython3.6m.so.1.0 (0x00007fcb5945e000) $ dnf whatprovides liblzma\t//这样可能什么也不返回 $ dnf whatprovides *liblzma*\t//加通配符，这样可能返回太多，包括文档之类的 $ yum whatprovides *libc.so*|wc 595 1598 19436 $ dnf whatprovides */liblzma.so*\t//库都是 .so的， $ yum whatprovides */libc.so*|wc 222 508 5008 $ dnf reinstall xz-devel //用dnf/yum重新安装这个包就可以了 2. 确定应用程序是否存在内存泄漏 并不是解决内存泄露，而是发现内存泄露并生成报告，从而让开发去处理。\nvalgrind: Linux可执行文件的debugging和profiling套件，主要用于检测 C 和 C++ 程序中的内存问题。\n&ndash;tool=memcheck //内存工具(也是默认的，不定义也是这个)\n&ndash;log-file=\t//输出到自定义文件\n&ndash;leak-check=full //检查所有内存泄露，而不是占用额外的内存，这将提供完整内存泄露细节\n(对于其他语言，Java内存泄露检测工具：VisualVM：(jvisualvm.exe)。Python内存泄露检测工具：memory_profiler。Go语言内存泄露检测工具：go-leak。)\n">
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="Toggle Menu">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/"></a></h1>
+            <h2 class="site-description"></h2>
+        </div>
+    </header><ol class="menu" id="main-menu">
+        
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>Dark Mode</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            
+            
+            
+            <a href="/categories/%E6%8A%80%E6%9C%AF/" style="background-color: hsl(154, 60%, 84%); color: hsl(154, 60%, 15%);">
+                技术
+            </a>
+        
+            
+            
+            
+            <a href="/categories/linux/" style="background-color: hsl(237, 60%, 84%); color: hsl(237, 60%, 15%);">
+                Linux
+            </a>
+        
+            
+            
+            
+            <a href="/categories/linux%E8%AF%8A%E6%96%AD%E5%92%8C%E6%95%85%E9%9A%9C%E6%8E%92%E9%99%A4/" style="background-color: hsl(283, 60%, 84%); color: hsl(283, 60%, 15%);">
+                Linux诊断和故障排除
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/posts/linux-diagnosis-and-troubleshooting-series-7-application-diagnosis/">Linux诊断和故障排除系列(七) -- 应用程序诊断</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    
+    
+    
+    <footer class="article-meta">
+        
+            <div class="inline-meta">
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                    <time class="article-time--published" datetime='2024-07-07T20:02:29&#43;08:00'>Sunday, July 7, 2024</time>
+                
+
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                    <time class="article-time--reading">
+                        6 minutes read
+                    </time>
+                
+            </div>
+        
+
+        
+
+        
+    </footer>
+    
+</div>
+
+</header>
+
+    
+
+    <section class="article-content">
+    
+    
+    <h1 id="1-确定第三方软件的库依赖关系">1. 确定第三方软件的库依赖关系
+</h1><h2 id="11-什么是库依赖">1.1 什么是库依赖
+</h2><p>第三方软件和第一方软件等，会共享很多function，而这些通常是通过库来实现的，所以将这些通用代码(例如读、写、打开文件等)放到一个共享库中，然后每个APP访问这个共享库。 例如第三方APP是nginx，第一方APP是pmlogger，这两个APP会共享一些不同的库，例如libcrypto。<br>
+为了让nginx和pmlogger访问libcrypto，使用的是ld-linker工具，它负责加载共享库，并将共享库映射到内存中，然后APP就可以访问这些共享库了。</p>
+<h2 id="12-查询使用了哪些库">1.2 查询使用了哪些库
+</h2><p>ldconfig -p //查看在内存cache中，哪些库是可用的<br>
+ldd //显示共享库依赖，需要提供 可执行文件的全路径<br>
+ldd $(which python3) //将which python3命令的输出，作为ldd命令的参数</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl">$ ldconfig -p <span class="p">|</span> more
+</span></span><span class="line"><span class="cl"><span class="m">298</span> libs found in cache <span class="sb">`</span>/etc/ld.so.cache<span class="sb">`</span>
+</span></span><span class="line"><span class="cl">        p11-kit-trust.so <span class="o">(</span>libc6,x86-64<span class="o">)</span> <span class="o">=</span>&gt; /lib64/p11-kit-trust.so
+</span></span><span class="line"><span class="cl">        libz.so.1 <span class="o">(</span>libc6,x86-64<span class="o">)</span> <span class="o">=</span>&gt; /lib64/libz.so.1
+</span></span><span class="line"><span class="cl">        libyaml-0.so.2 <span class="o">(</span>libc6,x86-64<span class="o">)</span> <span class="o">=</span>&gt; /lib64/libyaml-0.so.2
+</span></span><span class="line"><span class="cl">......
+</span></span><span class="line"><span class="cl">$ which python3
+</span></span><span class="line"><span class="cl">/bin/python3
+</span></span><span class="line"><span class="cl">$ ldd /bin/python3
+</span></span><span class="line"><span class="cl">        linux-vdso.so.1 <span class="o">=</span>&gt;  <span class="o">(</span>0x00007ffd177ad000<span class="o">)</span>
+</span></span><span class="line"><span class="cl">        libpython3.6m.so.1.0 <span class="o">=</span>&gt; /lib64/libpython3.6m.so.1.0 <span class="o">(</span>0x00007fcb5945e000<span class="o">)</span>
+</span></span><span class="line"><span class="cl">......
+</span></span><span class="line"><span class="cl">$ ldd <span class="k">$(</span>which python3<span class="k">)</span>              //功能等同于上面二条命令
+</span></span></code></pre></div><h2 id="13-共享库问题">1.3 共享库问题
+</h2><p>共享库问题，如果共享库有问题，可能就会输出共享库名，但库的位置可能无法提供(例如闪烁？)<br>
+dnf whatprovides liblzma //哪个软件包安装了这个库，然后 安装软件包就OK了</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl">$ ldd /bin/python3
+</span></span><span class="line"><span class="cl">        linux-vdso.so.1 <span class="o">=</span>&gt;  <span class="o">(</span>0x00007ffd177ad000<span class="o">)</span>
+</span></span><span class="line"><span class="cl">        libpython3.6m.so.1.0 <span class="o">=</span>&gt; /lib64/libpython3.6m.so.1.0 <span class="o">(</span>0x00007fcb5945e000<span class="o">)</span>
+</span></span><span class="line"><span class="cl">$ dnf whatprovides liblzma		//这样可能什么也不返回
+</span></span><span class="line"><span class="cl">$ dnf whatprovides *liblzma*		//加通配符，这样可能返回太多，包括文档之类的
+</span></span><span class="line"><span class="cl">$ yum whatprovides *libc.so*<span class="p">|</span>wc 
+</span></span><span class="line"><span class="cl">    <span class="m">595</span>    <span class="m">1598</span>   <span class="m">19436</span>
+</span></span><span class="line"><span class="cl">$ dnf whatprovides */liblzma.so*		//库都是 .so的，
+</span></span><span class="line"><span class="cl">$ yum whatprovides */libc.so*<span class="p">|</span>wc
+</span></span><span class="line"><span class="cl">    <span class="m">222</span>     <span class="m">508</span>    <span class="m">5008</span>
+</span></span><span class="line"><span class="cl">$ dnf reinstall xz-devel                //用dnf/yum重新安装这个包就可以了
+</span></span></code></pre></div><h1 id="2-确定应用程序是否存在内存泄漏">2. 确定应用程序是否存在内存泄漏
+</h1><p>并不是解决内存泄露，而是发现内存泄露并生成报告，从而让开发去处理。<br>
+valgrind: Linux可执行文件的debugging和profiling套件，主要用于检测 C 和 C++ 程序中的内存问题。<br>
+&ndash;tool=memcheck //内存工具(也是默认的，不定义也是这个)<br>
+&ndash;log-file=	//输出到自定义文件<br>
+&ndash;leak-check=full //检查所有内存泄露，而不是占用额外的内存，这将提供完整内存泄露细节<br>
+(对于其他语言，Java内存泄露检测工具：VisualVM：(jvisualvm.exe)。Python内存泄露检测工具：memory_profiler。Go语言内存泄露检测工具：go-leak。)</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl">dnf install valgrind
+</span></span><span class="line"><span class="cl">curl https://github.com/linuxacademy/content-rh342/raw/main/lessons/section-7/memleak_test_app -O
+</span></span><span class="line"><span class="cl">chmod +x memleak_test_app
+</span></span><span class="line"><span class="cl">valgrind ./memleak_test_app //需要全路径或相对路径名
+</span></span><span class="line"><span class="cl">valgrind --leak-check<span class="o">=</span>full /root/memleak_test_app //输出所有细节
+</span></span><span class="line"><span class="cl">valgrind --leak-check<span class="o">=</span>full --show-leak-kinds<span class="o">=</span>all /root/memleak_test_app //输出 内存泄露 更详细的细节。会报告有多少内存被使用，但没有被reallocated
+</span></span><span class="line"><span class="cl">valgrind --leak-check<span class="o">=</span>full --show-leak-kinds<span class="o">=</span>all --log-file<span class="o">=</span>./memcheck /root/memleak_test_app //输出到文件
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl">$ valgrind /root/memleak_test_app               
+</span></span><span class="line"><span class="cl"><span class="o">==</span><span class="nv">10077</span><span class="o">==</span> Memcheck, a memory error <span class="nv">detector</span>
+</span></span><span class="line"><span class="cl"><span class="o">==</span><span class="nv">10077</span><span class="o">==</span> Copyright <span class="o">(</span>C<span class="o">)</span> 2002-2017, and GNU GPL<span class="s1">&#39;d, by Julian Seward et al.
+</span></span></span><span class="line"><span class="cl"><span class="s1">==10077== Using Valgrind-3.15.0 and LibVEX; rerun with -h for copyright info
+</span></span></span><span class="line"><span class="cl"><span class="s1">==10077== Command: /root/memleak_test_app
+</span></span></span><span class="line"><span class="cl"><span class="s1">==10077== 
+</span></span></span><span class="line"><span class="cl"><span class="s1">==10077== Invalid write of size 4
+</span></span></span><span class="line"><span class="cl"><span class="s1">==10077==    at 0x40053B: f (in /root/memleak_test_app)
+</span></span></span><span class="line"><span class="cl"><span class="s1">==10077==    by 0x40054B: main (in /root/memleak_test_app)
+</span></span></span><span class="line"><span class="cl"><span class="s1">==10077==  Address 0x5205068 is 0 bytes after a block of size 40 alloc&#39;</span><span class="nv">d</span>
+</span></span><span class="line"><span class="cl"><span class="o">==</span><span class="nv">10077</span><span class="o">==</span>    at 0x4C29F73: malloc <span class="o">(</span>vg_replace_malloc.c:309<span class="o">)</span>
+</span></span><span class="line"><span class="cl"><span class="o">==</span><span class="nv">10077</span><span class="o">==</span>    by 0x40052E: f <span class="o">(</span>in /root/memleak_test_app<span class="o">)</span>
+</span></span><span class="line"><span class="cl"><span class="o">==</span><span class="nv">10077</span><span class="o">==</span>    by 0x40054B: main <span class="o">(</span>in /root/memleak_test_app<span class="o">)</span>
+</span></span><span class="line"><span class="cl"><span class="o">==</span><span class="nv">10077</span><span class="o">==</span> 
+</span></span><span class="line"><span class="cl"><span class="o">==</span><span class="nv">10077</span><span class="o">==</span> 
+</span></span><span class="line"><span class="cl"><span class="o">==</span><span class="nv">10077</span><span class="o">==</span> HEAP SUMMARY:
+</span></span><span class="line"><span class="cl"><span class="o">==</span><span class="nv">10077</span><span class="o">==</span>     in use at exit: <span class="m">40</span> bytes in <span class="m">1</span> <span class="nv">blocks</span>
+</span></span><span class="line"><span class="cl"><span class="o">==</span><span class="nv">10077</span><span class="o">==</span>   total heap usage: <span class="m">1</span> allocs, <span class="m">0</span> frees, <span class="m">40</span> bytes <span class="nv">allocated</span>
+</span></span><span class="line"><span class="cl"><span class="o">==</span><span class="nv">10077</span><span class="o">==</span> 
+</span></span><span class="line"><span class="cl"><span class="o">==</span><span class="nv">10077</span><span class="o">==</span> LEAK SUMMARY:
+</span></span><span class="line"><span class="cl"><span class="o">==</span><span class="nv">10077</span><span class="o">==</span>    definitely lost: <span class="m">40</span> bytes in <span class="m">1</span> <span class="nv">blocks</span>
+</span></span><span class="line"><span class="cl"><span class="o">==</span><span class="nv">10077</span><span class="o">==</span>    indirectly lost: <span class="m">0</span> bytes in <span class="m">0</span> <span class="nv">blocks</span>
+</span></span><span class="line"><span class="cl"><span class="o">==</span><span class="nv">10077</span><span class="o">==</span>      possibly lost: <span class="m">0</span> bytes in <span class="m">0</span> <span class="nv">blocks</span>
+</span></span><span class="line"><span class="cl"><span class="o">==</span><span class="nv">10077</span><span class="o">==</span>    still reachable: <span class="m">0</span> bytes in <span class="m">0</span> <span class="nv">blocks</span>
+</span></span><span class="line"><span class="cl"><span class="o">==</span><span class="nv">10077</span><span class="o">==</span>         suppressed: <span class="m">0</span> bytes in <span class="m">0</span> <span class="nv">blocks</span>
+</span></span><span class="line"><span class="cl"><span class="o">==</span><span class="nv">10077</span><span class="o">==</span> Rerun with --leak-check<span class="o">=</span>full to see details of leaked memory      <span class="o">&lt;&lt;&lt;&lt;&lt;&lt;</span>
+</span></span><span class="line"><span class="cl"><span class="o">==</span><span class="nv">10077</span><span class="o">==</span> 
+</span></span><span class="line"><span class="cl"><span class="o">==</span><span class="nv">10077</span><span class="o">==</span> For lists of detected and suppressed errors, rerun with: -s
+</span></span><span class="line"><span class="cl"><span class="o">==</span><span class="nv">10077</span><span class="o">==</span> ERROR SUMMARY: <span class="m">1</span> errors from <span class="m">1</span> contexts <span class="o">(</span>suppressed: <span class="m">0</span> from 0<span class="o">)</span>
+</span></span></code></pre></div><h1 id="3-使用标准工具调试应用程序">3. 使用标准工具调试应用程序
+</h1><p>和上一节一样，这一节的目的是找出问题，而不是解决问题。很少有能解决问题的情况，只有例如修改文件权限等。<br>
+ltrace和strace它们有相同的参数</p>
+<h2 id="31--ltrace">3.1  ltrace
+</h2><p>追踪命令或可执行文件的库调用。-o输出到自定义文件，-p自定义进程ID，-e通过表达式过滤从而只关注特定的库</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl">$ dnf install lstrace
+</span></span><span class="line"><span class="cl">$ touch empty
+</span></span><span class="line"><span class="cl">$ cat empty
+</span></span><span class="line"><span class="cl">$ ltrace <span class="k">$(</span>which cat<span class="k">)</span> empty                                                 
+</span></span><span class="line"><span class="cl">__libc_start_main<span class="o">(</span>0x401a20, 2, 0x7ffd7267e818, 0x408ca0 &lt;unfinished ...&gt;   
+</span></span><span class="line"><span class="cl">getpagesize<span class="o">()</span>                                                              <span class="o">=</span> <span class="m">4096</span>
+</span></span><span class="line"><span class="cl">strrchr<span class="o">(</span><span class="s2">&#34;/bin/cat&#34;</span>, <span class="s1">&#39;/&#39;</span><span class="o">)</span>                                                   <span class="o">=</span> <span class="s2">&#34;/cat&#34;</span>
+</span></span><span class="line"><span class="cl">setlocale<span class="o">(</span>LC_ALL, <span class="s2">&#34;&#34;</span><span class="o">)</span>                                                      <span class="o">=</span> <span class="s2">&#34;en_US.UTF-8&#34;</span>
+</span></span><span class="line"><span class="cl">bindtextdomain<span class="o">(</span><span class="s2">&#34;coreutils&#34;</span>, <span class="s2">&#34;/usr/share/locale&#34;</span><span class="o">)</span>                           <span class="o">=</span> <span class="s2">&#34;/usr/share/locale&#34;</span>
+</span></span><span class="line"><span class="cl">textdomain<span class="o">(</span><span class="s2">&#34;coreutils&#34;</span><span class="o">)</span>                                                    <span class="o">=</span> <span class="s2">&#34;coreutils&#34;</span>
+</span></span><span class="line"><span class="cl">__cxa_atexit<span class="o">(</span>0x4029f0, 0, 0, 0x736c6974756572<span class="o">)</span>                             <span class="o">=</span> <span class="m">0</span>
+</span></span><span class="line"><span class="cl">getopt_long<span class="o">(</span>2, 0x7ffd7267e818, <span class="s2">&#34;benstuvAET&#34;</span>, 0x60bc60, nil<span class="o">)</span>                <span class="o">=</span> -1
+</span></span><span class="line"><span class="cl">__fxstat<span class="o">(</span>1, 1, 0x7ffd7267e660<span class="o">)</span>                                             <span class="o">=</span> <span class="m">0</span>
+</span></span><span class="line"><span class="cl">open<span class="o">(</span><span class="s2">&#34;empty&#34;</span>, 0, 037777600000<span class="o">)</span>                                             <span class="o">=</span> <span class="m">3</span>                      <span class="o">&lt;&lt;&lt;</span>打开文件
+</span></span><span class="line"><span class="cl">__fxstat<span class="o">(</span>1, 3, 0x7ffd7267e660<span class="o">)</span>                                             <span class="o">=</span> <span class="m">0</span>
+</span></span><span class="line"><span class="cl">posix_fadvise<span class="o">(</span>3, 0, 0, 2<span class="o">)</span>                                                  <span class="o">=</span> <span class="m">0</span>
+</span></span><span class="line"><span class="cl">malloc<span class="o">(</span>69631<span class="o">)</span>                                                              <span class="o">=</span> 0x76e030               <span class="o">&lt;&lt;&lt;</span>分配内存
+</span></span><span class="line"><span class="cl">read<span class="o">(</span>3, <span class="s2">&#34;&#34;</span>, 65536<span class="o">)</span>                                                         <span class="o">=</span> <span class="m">0</span>                      <span class="o">&lt;&lt;&lt;</span>读取文件
+</span></span><span class="line"><span class="cl">free<span class="o">(</span>0x76e030<span class="o">)</span>                                                             <span class="o">=</span> &lt;void&gt;
+</span></span><span class="line"><span class="cl">close<span class="o">(</span>3<span class="o">)</span>                                                                   <span class="o">=</span> <span class="m">0</span>                      <span class="o">&lt;&lt;&lt;</span>关闭文件
+</span></span><span class="line"><span class="cl">exit<span class="o">(</span><span class="m">0</span> &lt;unfinished ...&gt;                                                    
+</span></span><span class="line"><span class="cl">__fpending<span class="o">(</span>0x7ff0582ee400, 0, 64, 0x7ff0582eeeb0<span class="o">)</span>                          <span class="o">=</span> <span class="m">0</span>
+</span></span><span class="line"><span class="cl">......
+</span></span><span class="line"><span class="cl">+++ exited <span class="o">(</span>status 0<span class="o">)</span> +++
+</span></span><span class="line"><span class="cl">$ <span class="nb">echo</span> <span class="s2">&#34;hello&#34;</span> &gt; empty
+</span></span><span class="line"><span class="cl">$ ltrace <span class="k">$(</span>which cat<span class="k">)</span> empty
+</span></span><span class="line"><span class="cl">__libc_start_main<span class="o">(</span>0x401a20, 2, 0x7ffe8d6626f8, 0x408ca0 &lt;unfinished ...&gt;
+</span></span><span class="line"><span class="cl">getpagesize<span class="o">()</span>                                                              <span class="o">=</span> <span class="m">4096</span>
+</span></span><span class="line"><span class="cl">strrchr<span class="o">(</span><span class="s2">&#34;/bin/cat&#34;</span>, <span class="s1">&#39;/&#39;</span><span class="o">)</span>                                                   <span class="o">=</span> <span class="s2">&#34;/cat&#34;</span>
+</span></span><span class="line"><span class="cl">setlocale<span class="o">(</span>LC_ALL, <span class="s2">&#34;&#34;</span><span class="o">)</span>                                                      <span class="o">=</span> <span class="s2">&#34;en_US.UTF-8&#34;</span>
+</span></span><span class="line"><span class="cl">bindtextdomain<span class="o">(</span><span class="s2">&#34;coreutils&#34;</span>, <span class="s2">&#34;/usr/share/locale&#34;</span><span class="o">)</span>                           <span class="o">=</span> <span class="s2">&#34;/usr/share/locale&#34;</span>
+</span></span><span class="line"><span class="cl">textdomain<span class="o">(</span><span class="s2">&#34;coreutils&#34;</span><span class="o">)</span>                                                    <span class="o">=</span> <span class="s2">&#34;coreutils&#34;</span>
+</span></span><span class="line"><span class="cl">__cxa_atexit<span class="o">(</span>0x4029f0, 0, 0, 0x736c6974756572<span class="o">)</span>                             <span class="o">=</span> <span class="m">0</span>
+</span></span><span class="line"><span class="cl">getopt_long<span class="o">(</span>2, 0x7ffe8d6626f8, <span class="s2">&#34;benstuvAET&#34;</span>, 0x60bc60, nil<span class="o">)</span>                <span class="o">=</span> -1
+</span></span><span class="line"><span class="cl">__fxstat<span class="o">(</span>1, 1, 0x7ffe8d662540<span class="o">)</span>                                             <span class="o">=</span> <span class="m">0</span>
+</span></span><span class="line"><span class="cl">open<span class="o">(</span><span class="s2">&#34;empty&#34;</span>, 0, 037777600000<span class="o">)</span>                                             <span class="o">=</span> <span class="m">3</span>
+</span></span><span class="line"><span class="cl">__fxstat<span class="o">(</span>1, 3, 0x7ffe8d662540<span class="o">)</span>                                             <span class="o">=</span> <span class="m">0</span>
+</span></span><span class="line"><span class="cl">posix_fadvise<span class="o">(</span>3, 0, 0, 2<span class="o">)</span>                                                  <span class="o">=</span> <span class="m">0</span>
+</span></span><span class="line"><span class="cl">malloc<span class="o">(</span>69631<span class="o">)</span>                                                              <span class="o">=</span> 0x260a030
+</span></span><span class="line"><span class="cl">read<span class="o">(</span>3, <span class="s2">&#34;hello\n&#34;</span>, 65536<span class="o">)</span>                                                  <span class="o">=</span> <span class="m">6</span>                      <span class="o">&lt;&lt;&lt;</span>读取文件内容
+</span></span><span class="line"><span class="cl">write<span class="o">(</span>1, <span class="s2">&#34;hello\n&#34;</span>, 6hello<span class="o">)</span>                                                <span class="o">=</span> <span class="m">6</span>                      <span class="o">&lt;&lt;&lt;</span>写文件内容到标准输出
+</span></span><span class="line"><span class="cl">read<span class="o">(</span>3, <span class="s2">&#34;&#34;</span>, 65536<span class="o">)</span>                                                         <span class="o">=</span> <span class="m">0</span>                      <span class="o">&lt;&lt;&lt;</span>读取文件内容
+</span></span><span class="line"><span class="cl">free<span class="o">(</span>0x260a030<span class="o">)</span>                                                            <span class="o">=</span> &lt;void&gt;
+</span></span><span class="line"><span class="cl">close<span class="o">(</span>3<span class="o">)</span>                                                                   <span class="o">=</span> <span class="m">0</span>
+</span></span><span class="line"><span class="cl">exit<span class="o">(</span><span class="m">0</span> &lt;unfinished ...&gt;
+</span></span><span class="line"><span class="cl">__fpending<span class="o">(</span>0x7fc1ce1aa400, 0, 64, 0x7fc1ce1aaeb0<span class="o">)</span>                          <span class="o">=</span> <span class="m">0</span>
+</span></span><span class="line"><span class="cl">fileno<span class="o">(</span>0x7fc1ce1aa400<span class="o">)</span>                                                     <span class="o">=</span> <span class="m">1</span>
+</span></span><span class="line"><span class="cl">......
+</span></span><span class="line"><span class="cl">+++ exited <span class="o">(</span>status 0<span class="o">)</span> +++
+</span></span><span class="line"><span class="cl">$ ltrace -e <span class="nb">read</span> <span class="k">$(</span>which cat<span class="k">)</span> empty                                                     //过滤指定库函数
+</span></span><span class="line"><span class="cl">cat-&gt;read<span class="o">(</span>3, <span class="s2">&#34;hello\n&#34;</span>, 65536<span class="o">)</span>                                             <span class="o">=</span> <span class="m">6</span>
+</span></span><span class="line"><span class="cl">hello
+</span></span><span class="line"><span class="cl">cat-&gt;read<span class="o">(</span>3, <span class="s2">&#34;&#34;</span>, 65536<span class="o">)</span>                                                    <span class="o">=</span> <span class="m">0</span>
+</span></span><span class="line"><span class="cl">+++ exited <span class="o">(</span>status 0<span class="o">)</span> +++
+</span></span></code></pre></div><h2 id="32-strace">3.2 strace
+</h2><p>追踪命令或可执行文件的系统调用。-o输出到自定义文件，-p自定义进程ID，-e通过表达式过滤从而只关注特定的系统调用</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl">$ dnf install strace -y
+</span></span><span class="line"><span class="cl">$ strace <span class="k">$(</span>which cat<span class="k">)</span> empty  
+</span></span><span class="line"><span class="cl">execve<span class="o">(</span><span class="s2">&#34;/bin/cat&#34;</span>, <span class="o">[</span><span class="s2">&#34;/bin/cat&#34;</span>, <span class="s2">&#34;empty&#34;</span><span class="o">]</span>, 0x7ffdf6856388 /* <span class="m">24</span> vars */<span class="o">)</span> <span class="o">=</span> <span class="m">0</span>
+</span></span><span class="line"><span class="cl">brk<span class="o">(</span>NULL<span class="o">)</span>                               <span class="o">=</span> 0x13de000
+</span></span><span class="line"><span class="cl">mmap<span class="o">(</span>NULL, 4096, PROT_READ<span class="p">|</span>PROT_WRITE, MAP_PRIVATE<span class="p">|</span>MAP_ANONYMOUS, -1, 0<span class="o">)</span> <span class="o">=</span> 0x7f8972c84000
+</span></span><span class="line"><span class="cl">access<span class="o">(</span><span class="s2">&#34;/etc/ld.so.preload&#34;</span>, R_OK<span class="o">)</span>      <span class="o">=</span> -1 ENOENT <span class="o">(</span>No such file or directory<span class="o">)</span>
+</span></span><span class="line"><span class="cl">open<span class="o">(</span><span class="s2">&#34;/etc/ld.so.cache&#34;</span>, O_RDONLY<span class="p">|</span>O_CLOEXEC<span class="o">)</span> <span class="o">=</span> <span class="m">3</span>
+</span></span><span class="line"><span class="cl">fstat<span class="o">(</span>3, <span class="o">{</span><span class="nv">st_mode</span><span class="o">=</span>S_IFREG<span class="p">|</span>0644, <span class="nv">st_size</span><span class="o">=</span>22608, ...<span class="o">})</span> <span class="o">=</span> <span class="m">0</span>
+</span></span><span class="line"><span class="cl">mmap<span class="o">(</span>NULL, 22608, PROT_READ, MAP_PRIVATE, 3, 0<span class="o">)</span> <span class="o">=</span> 0x7f8972c7e000
+</span></span><span class="line"><span class="cl">close<span class="o">(</span>3<span class="o">)</span>                                <span class="o">=</span> <span class="m">0</span>
+</span></span><span class="line"><span class="cl">open<span class="o">(</span><span class="s2">&#34;/lib64/libc.so.6&#34;</span>, O_RDONLY<span class="p">|</span>O_CLOEXEC<span class="o">)</span> <span class="o">=</span> <span class="m">3</span>
+</span></span><span class="line"><span class="cl">read<span class="o">(</span>3, <span class="s2">&#34;\177ELF\2\1\1\3\0\0\0\0\0\0\0\0\3\0&gt;\0\1\0\0\0`&amp;\2\0\0\0\0\0&#34;</span>..., 832<span class="o">)</span> <span class="o">=</span> <span class="m">832</span>
+</span></span><span class="line"><span class="cl">fstat<span class="o">(</span>3, <span class="o">{</span><span class="nv">st_mode</span><span class="o">=</span>S_IFREG<span class="p">|</span>0755, <span class="nv">st_size</span><span class="o">=</span>2156592, ...<span class="o">})</span> <span class="o">=</span> <span class="m">0</span>
+</span></span><span class="line"><span class="cl">mmap<span class="o">(</span>NULL, 3985920, PROT_READ<span class="p">|</span>PROT_EXEC, MAP_PRIVATE<span class="p">|</span>MAP_DENYWRITE, 3, 0<span class="o">)</span> <span class="o">=</span> 0x7f8972696000
+</span></span><span class="line"><span class="cl">mprotect<span class="o">(</span>0x7f897285a000, 2093056, PROT_NONE<span class="o">)</span> <span class="o">=</span> <span class="m">0</span>
+</span></span><span class="line"><span class="cl">mmap<span class="o">(</span>0x7f8972a59000, 24576, PROT_READ<span class="p">|</span>PROT_WRITE, MAP_PRIVATE<span class="p">|</span>MAP_FIXED<span class="p">|</span>MAP_DENYWRITE, 3, 0x1c3000<span class="o">)</span> <span class="o">=</span> 0x7f8972a59000
+</span></span><span class="line"><span class="cl">mmap<span class="o">(</span>0x7f8972a5f000, 16896, PROT_READ<span class="p">|</span>PROT_WRITE, MAP_PRIVATE<span class="p">|</span>MAP_FIXED<span class="p">|</span>MAP_ANONYMOUS, -1, 0<span class="o">)</span> <span class="o">=</span> 0x7f8972a5f000
+</span></span><span class="line"><span class="cl">close<span class="o">(</span>3<span class="o">)</span>                                <span class="o">=</span> <span class="m">0</span>
+</span></span><span class="line"><span class="cl">mmap<span class="o">(</span>NULL, 4096, PROT_READ<span class="p">|</span>PROT_WRITE, MAP_PRIVATE<span class="p">|</span>MAP_ANONYMOUS, -1, 0<span class="o">)</span> <span class="o">=</span> 0x7f8972c7d000
+</span></span><span class="line"><span class="cl">mmap<span class="o">(</span>NULL, 8192, PROT_READ<span class="p">|</span>PROT_WRITE, MAP_PRIVATE<span class="p">|</span>MAP_ANONYMOUS, -1, 0<span class="o">)</span> <span class="o">=</span> 0x7f8972c7b000
+</span></span><span class="line"><span class="cl">arch_prctl<span class="o">(</span>ARCH_SET_FS, 0x7f8972c7b740<span class="o">)</span> <span class="o">=</span> <span class="m">0</span>
+</span></span><span class="line"><span class="cl">access<span class="o">(</span><span class="s2">&#34;/etc/sysconfig/strcasecmp-nonascii&#34;</span>, F_OK<span class="o">)</span> <span class="o">=</span> -1 ENOENT <span class="o">(</span>No such file or directory<span class="o">)</span>
+</span></span><span class="line"><span class="cl">access<span class="o">(</span><span class="s2">&#34;/etc/sysconfig/strcasecmp-nonascii&#34;</span>, F_OK<span class="o">)</span> <span class="o">=</span> -1 ENOENT <span class="o">(</span>No such file or directory<span class="o">)</span>
+</span></span><span class="line"><span class="cl">mprotect<span class="o">(</span>0x7f8972a59000, 16384, PROT_READ<span class="o">)</span> <span class="o">=</span> <span class="m">0</span>
+</span></span><span class="line"><span class="cl">mprotect<span class="o">(</span>0x60b000, 4096, PROT_READ<span class="o">)</span>     <span class="o">=</span> <span class="m">0</span>
+</span></span><span class="line"><span class="cl">mprotect<span class="o">(</span>0x7f8972c85000, 4096, PROT_READ<span class="o">)</span> <span class="o">=</span> <span class="m">0</span>
+</span></span><span class="line"><span class="cl">munmap<span class="o">(</span>0x7f8972c7e000, 22608<span class="o">)</span>           <span class="o">=</span> <span class="m">0</span>
+</span></span><span class="line"><span class="cl">brk<span class="o">(</span>NULL<span class="o">)</span>                               <span class="o">=</span> 0x13de000
+</span></span><span class="line"><span class="cl">brk<span class="o">(</span>0x13ff000<span class="o">)</span>                          <span class="o">=</span> 0x13ff000
+</span></span><span class="line"><span class="cl">brk<span class="o">(</span>NULL<span class="o">)</span>                               <span class="o">=</span> 0x13ff000
+</span></span><span class="line"><span class="cl">open<span class="o">(</span><span class="s2">&#34;/usr/lib/locale/locale-archive&#34;</span>, O_RDONLY<span class="p">|</span>O_CLOEXEC<span class="o">)</span> <span class="o">=</span> <span class="m">3</span>
+</span></span><span class="line"><span class="cl">fstat<span class="o">(</span>3, <span class="o">{</span><span class="nv">st_mode</span><span class="o">=</span>S_IFREG<span class="p">|</span>0644, <span class="nv">st_size</span><span class="o">=</span>106176928, ...<span class="o">})</span> <span class="o">=</span> <span class="m">0</span>
+</span></span><span class="line"><span class="cl">mmap<span class="o">(</span>NULL, 106176928, PROT_READ, MAP_PRIVATE, 3, 0<span class="o">)</span> <span class="o">=</span> 0x7f896c153000
+</span></span><span class="line"><span class="cl">close<span class="o">(</span>3<span class="o">)</span>                                <span class="o">=</span> <span class="m">0</span>
+</span></span><span class="line"><span class="cl">fstat<span class="o">(</span>1, <span class="o">{</span><span class="nv">st_mode</span><span class="o">=</span>S_IFCHR<span class="p">|</span>0620, <span class="nv">st_rdev</span><span class="o">=</span>makedev<span class="o">(</span>136, 0<span class="o">)</span>, ...<span class="o">})</span> <span class="o">=</span> <span class="m">0</span>
+</span></span><span class="line"><span class="cl">open<span class="o">(</span><span class="s2">&#34;empty&#34;</span>, O_RDONLY<span class="o">)</span>                 <span class="o">=</span> <span class="m">3</span>
+</span></span><span class="line"><span class="cl">fstat<span class="o">(</span>3, <span class="o">{</span><span class="nv">st_mode</span><span class="o">=</span>S_IFREG<span class="p">|</span>0644, <span class="nv">st_size</span><span class="o">=</span>6, ...<span class="o">})</span> <span class="o">=</span> <span class="m">0</span>
+</span></span><span class="line"><span class="cl">fadvise64<span class="o">(</span>3, 0, 0, POSIX_FADV_SEQUENTIAL<span class="o">)</span> <span class="o">=</span> <span class="m">0</span>
+</span></span><span class="line"><span class="cl">read<span class="o">(</span>3, <span class="s2">&#34;hello\n&#34;</span>, 65536<span class="o">)</span>               <span class="o">=</span> <span class="m">6</span>
+</span></span><span class="line"><span class="cl">write<span class="o">(</span>1, <span class="s2">&#34;hello\n&#34;</span>, 6hello
+</span></span><span class="line"><span class="cl"><span class="o">)</span>                  <span class="o">=</span> <span class="m">6</span>
+</span></span><span class="line"><span class="cl">read<span class="o">(</span>3, <span class="s2">&#34;&#34;</span>, 65536<span class="o">)</span>                      <span class="o">=</span> <span class="m">0</span>
+</span></span><span class="line"><span class="cl">close<span class="o">(</span>3<span class="o">)</span>                                <span class="o">=</span> <span class="m">0</span>
+</span></span><span class="line"><span class="cl">close<span class="o">(</span>1<span class="o">)</span>                                <span class="o">=</span> <span class="m">0</span>
+</span></span><span class="line"><span class="cl">close<span class="o">(</span>2<span class="o">)</span>                                <span class="o">=</span> <span class="m">0</span>
+</span></span><span class="line"><span class="cl">exit_group<span class="o">(</span>0<span class="o">)</span>                           <span class="o">=</span> ?
+</span></span><span class="line"><span class="cl">+++ exited with <span class="m">0</span> +++
+</span></span><span class="line"><span class="cl">$ strace -e <span class="nb">read</span> <span class="k">$(</span>which cat<span class="k">)</span> empty 
+</span></span><span class="line"><span class="cl">read<span class="o">(</span>3, <span class="s2">&#34;\177ELF\2\1\1\3\0\0\0\0\0\0\0\0\3\0&gt;\0\1\0\0\0`&amp;\2\0\0\0\0\0&#34;</span>..., 832<span class="o">)</span> <span class="o">=</span> <span class="m">832</span>
+</span></span><span class="line"><span class="cl">read<span class="o">(</span>3, <span class="s2">&#34;hello\n&#34;</span>, 65536<span class="o">)</span>               <span class="o">=</span> <span class="m">6</span>
+</span></span><span class="line"><span class="cl">hello
+</span></span><span class="line"><span class="cl">read<span class="o">(</span>3, <span class="s2">&#34;&#34;</span>, 65536<span class="o">)</span>                      <span class="o">=</span> <span class="m">0</span>
+</span></span><span class="line"><span class="cl">+++ exited with <span class="m">0</span> +++
+</span></span></code></pre></div><h1 id="4-selinux">4. SELinux
+</h1><h2 id="41-selinux上下文">4.1 SELinux上下文
+</h2><p>SELinux Context是围绕特定文件的安全架构和对于特定文件的访问控制<br>
+setools: 包括SELinux相关的troubleshooting工具的包<br>
+查看特定文件的相关上下文，需要使用这个setools<br>
+ls -Z /var/log/pcp/ //在安装setools以后，就可以使用-z的ls命令来查看文件的SELinux上下文信息<br>
+semange<br>
+semange login -l		//显示用户，列出用户映射<br>
+semange user -l 		//显示与用户相关的角色<br>
+semange fcontext -l	//显示上下文类型关联<br>
+semange port -l			//端口映射<br>
+seinfo<br>
+seinfo -u		//显示用户，列出用户映射<br>
+seinfo -r 		//显示与用户相关的角色<br>
+seinfo -t		//显示上下文类型关联<br>
+seinfo -p		//端口映射</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl">$ dnf install setool -y
+</span></span><span class="line"><span class="cl">$ ls -Z /var/log/pcp/                       //在安装setools以后，就可以使用-z的ls命令来查看文件的SELinux上下文信息
+</span></span><span class="line"><span class="cl">system_u:object_r:pcp_log_t:s0 pmcd         //是一个system_user对象，object_role，是pcp_log_type，s0是多层、多类安装设置
+</span></span><span class="line"><span class="cl">$ ls -Z /etc/httpd/
+</span></span><span class="line"><span class="cl">$ seinfo -u 	//显示用户
+</span></span><span class="line"><span class="cl">$ semange login -l
+</span></span><span class="line"><span class="cl">$ seinfor -r		//显示角色
+</span></span><span class="line"><span class="cl">$ semange user -l
+</span></span><span class="line"><span class="cl">$ semange port -l
+</span></span></code></pre></div><h2 id="42-识别与selinux相关的问题">4.2 识别与SELinux相关的问题
+</h2><h3 id="421-测试问题是否出在selinux上">4.2.1 测试问题是否出在SELinux上
+</h3><p>对于SELinux的PD的第一步，是测试问题是否出在SELinux上。<br>
+运行 setenforce 0，然后测试文件是否还存在，如果还存在，那就和无关；如果没有问题了，那就是SELinux的问题。</p>
+<h3 id="421-selinux相关日志">4.2.1 SElinux相关日志
+</h3><p>相关日志：</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl">tail /var/log/audit/audit.log
+</span></span><span class="line"><span class="cl">sealert -a /var/log/audit/audit.log //过滤只有SE相关的错误
+</span></span><span class="line"><span class="cl">ausearch -m avc -ts recent //搜索avc或最宾发生的访问向量缓存问题
+</span></span><span class="line"><span class="cl">restorecon //恢复SELinux上下文，-R递归，-p/v输出<span class="o">(</span>print/verbose<span class="o">)</span>
+</span></span><span class="line"><span class="cl">Booleans //修改SELinux组件的开关
+</span></span><span class="line"><span class="cl">getsebool //显示boolean信息，-a显示所有
+</span></span><span class="line"><span class="cl">setsebool //设置Boolean，-P永久设置<span class="o">(</span>默认是临时的<span class="o">)</span>
+</span></span></code></pre></div><h2 id="43-解决与selinux相关的问题">4.3 解决与SELinux相关的问题
+</h2><h3 id="431-制造问题">4.3.1 制造问题
+</h3><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl">$ ls -Z /etc/httpd/
+</span></span><span class="line"><span class="cl">$ ls -Z /var/log/httpd/
+</span></span><span class="line"><span class="cl">$ chcon -R --reference /etc/httpd/ /var/log/httpd			//将/var/log/httpd的上下文修改为/etc/httpd/的样子
+</span></span><span class="line"><span class="cl">$ vi /etc/httpd/conf/httpd.conf
+</span></span><span class="line"><span class="cl">DocumentRoot <span class="s2">&#34;/home/cloud_user/www&#34;</span>			//修改这一行
+</span></span><span class="line"><span class="cl">$ mkdir /home/cloud_user/www
+</span></span><span class="line"><span class="cl">$ <span class="nb">echo</span> <span class="s2">&#34;hihihello&#34;</span>&gt; /home/cloud_user/www/index.html
+</span></span><span class="line"><span class="cl">$ chown -R cloud_user:cloud_user /home/cloud_user/www/
+</span></span><span class="line"><span class="cl">$ chmod -R <span class="m">755</span> /home/cloud_user/www/
+</span></span><span class="line"><span class="cl">$ rm -rf /etc/httpd/conf.d/welcome.conf
+</span></span><span class="line"><span class="cl">$ systemcl restart httpd		//会收到错误
+</span></span></code></pre></div><h3 id="432-解决问题">4.3.2 解决问题
+</h3><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl">$ tail /var/log/audit/audit.log				//查看是否有avc相关
+</span></span><span class="line"><span class="cl">$ sealert -a /var/log/audit/audit.log			//过滤只有SE相关的错误
+</span></span><span class="line"><span class="cl">$ ausearch -m avc -ts recent				//搜索avc或最近发生的访问向量缓存问题
+</span></span><span class="line"><span class="cl">$ find / -inum 4504376						//查找inode为4504376的文件
+</span></span><span class="line"><span class="cl">$ restorecon -Rv /var/log/httpd/            //递归恢复SELinux上下文。这里不使用chcon是因为不知道应该修改为什么
+</span></span><span class="line"><span class="cl">$ systemctl start httpd                     //一切正常
+</span></span><span class="line"><span class="cl">$ curl localhost			//会得到403 Forbidden的错误
+</span></span><span class="line"><span class="cl">$ ausearch -m avc -ts recent				//搜索avc或最近发生的访问向量缓存问题，找httpd相关的
+</span></span><span class="line"><span class="cl">$ sealert -a /var/log/audit/audit.log			//这里可能会给出进一步确定问题的提示，可能有setsebool相关命令的建议
+</span></span><span class="line"><span class="cl">$ getsebool -a
+</span></span><span class="line"><span class="cl">$ setsebool httpd_enable_homedirs 1		//打开，on
+</span></span><span class="line"><span class="cl">$ getsebool htpdd_enable_homedirs		//查看
+</span></span><span class="line"><span class="cl">$ curl localhost										//一切正常
+</span></span><span class="line"><span class="cl">$ setsebool -P httpd_enable_homedirs 1		//永久
+</span></span></code></pre></div>
+</section>
+
+
+    <footer class="article-meta article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/linux/">Linux</a>
+        
+            <a href="/tags/linux%E8%AF%8A%E6%96%AD%E5%92%8C%E6%95%85%E9%9A%9C%E6%8E%92%E9%99%A4/">Linux诊断和故障排除</a>
+        
+            <a href="/tags/%E5%BA%94%E7%94%A8%E7%A8%8B%E5%BA%8F%E8%AF%8A%E6%96%AD/">应用程序诊断</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+<aside>
+    <h2 class="section-title">Related content</h2>
+    <div class="subsection-list">
+        <div class="article-list--tile">
+            
+                
+<article class="">
+    <a href="/posts/linux-diagnosis-and-troubleshooting-series-6-fix-packages-and-package-manager/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux诊断和故障排除系列(六) -- 修复软件包及管理器</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/linux-diagnosis-and-troubleshooting-series-5-fix-iscsi/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux诊断和故障排除系列(五) -- 修复iSCSI</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/linux-diagnosis-and-troubleshooting-series-4-fix-filesystem/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux诊断和故障排除系列(四) -- 修复文件系统</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/linux-diagnosis-and-troubleshooting-series-3-reset-root-password/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux诊断和故障排除系列(三) -- 重置root密码</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/linux-diagnosis-and-troubleshooting-series-2-fix-kernel-service/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux诊断和故障排除系列(二) -- 修复内核服务</h2>
+        </div>
+    </a>
+</article>
+            
+        </div>
+    </div>
+</aside>
+
+     
+    
+        
+        <div class="disqus-container">
+    
+</div>
+
+<style>
+    .disqus-container {
+        background-color: var(--card-background);
+        border-radius: var(--card-border-radius);
+        box-shadow: var(--shadow-l1);
+        padding: var(--card-padding);
+    }
+</style>
+
+<script>
+    window.addEventListener('onColorSchemeChange', (e) => {
+        if (typeof DISQUS == 'object') {
+            DISQUS.reset({
+                reload: true
+            });
+        }
+    })
+</script>
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+        2026 
+    </section>
+    
+    <section class="powerby">
+        Built with <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> <br />
+        Theme <b><a href="https://github.com/CaiJimmy/hugo-theme-stack" target="_blank" rel="noopener" data-version="4.0.0">Stack</a></b> designed by <a href="https://jimmycai.com" target="_blank" rel="noopener">Jimmy</a>
+    </section>
+</footer>
+
+
+    
+
+
+
+<script type="module">
+    import gallery from '\/ts\/gallery.js';
+
+    const articleContent = document.querySelector('.article-content');
+    const shouldLoad = articleContent && (articleContent.querySelectorAll('figure').length > 0 || articleContent.querySelectorAll('img.gallery-image').length > 0);
+    
+    if (shouldLoad) {
+        gallery(articleContent);
+
+        const PhotoSwipeLightbox = (await import("https:\/\/cdn.jsdelivr.net\/npm\/photoswipe@5.4.4\/dist\/photoswipe-lightbox.esm.min.js")).default;
+        const styleHref = "https:\/\/cdn.jsdelivr.net\/npm\/photoswipe@5.4.4\/dist\/photoswipe.css";
+
+        const styleTag = document.createElement('link');
+        styleTag.rel = 'stylesheet';
+        styleTag.href = styleHref;
+        document.head.appendChild(styleTag);
+
+        const lightbox = new PhotoSwipeLightbox({
+            gallerySelector: '.article-content',
+            childSelector: 'figure a.image-link',
+            pswpModule: () => import("https:\/\/cdn.jsdelivr.net\/npm\/photoswipe@5.4.4\/dist\/photoswipe.esm.min.js")
+        });
+        lightbox.init();
+    }
+</script>
+    
+
+            </main>
+        </div>
+        
+<script type="text/javascript" src="/ts/main.3ee067593935e3e391e923f2aa079d2b8173732410e5e89b88be5ea1545eeff7.js" defer></script>
+
+
+    </body>
+</html>

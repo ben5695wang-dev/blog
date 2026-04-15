@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+    <head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="Linux性能诊断和调优系列(五)&ndash;文件系统篇\n目录 如何查看文件系统？\next4好还是xfs好？\n使用xfs时的建议优化\n使用ext4时的建议优化\n关闭atime选项来提高性能\n如何测试文件系统性能？\nSSD和TRIM\next4的日志模式选择\nbarriers和掉电后的数据恢复\n总结和建议\n如何查看文件系统？ mount 命令列出挂载的文件系统及其挂载选项\ndf命令显示文件系统的使用情况\nsar 命令列出可用目录项、使用中的文件句柄数、使用中的inode数和伪终端数\nlsof 命令显示打开中的文件\nstrace 命令可以显示进程的文件系统底层的详细操作时间\n">
+<title>Linux性能诊断和调优系列(五)--文件系统篇</title>
+
+
+<link rel="canonical" href="//localhost:1313/posts/linux-performance-diagnosis-and-tuning-series-5-filesystem/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap">
+
+
+<link rel="stylesheet" href="/scss/style.min.389e156f5e9bb13df5a924cfa99dfb9c39f3e01e68d9e146cd65bdae963be145.css"><meta property='og:title' content="Linux性能诊断和调优系列(五)--文件系统篇">
+<meta property='og:description' content="Linux性能诊断和调优系列(五)&ndash;文件系统篇\n目录 如何查看文件系统？\next4好还是xfs好？\n使用xfs时的建议优化\n使用ext4时的建议优化\n关闭atime选项来提高性能\n如何测试文件系统性能？\nSSD和TRIM\next4的日志模式选择\nbarriers和掉电后的数据恢复\n总结和建议\n如何查看文件系统？ mount 命令列出挂载的文件系统及其挂载选项\ndf命令显示文件系统的使用情况\nsar 命令列出可用目录项、使用中的文件句柄数、使用中的inode数和伪终端数\nlsof 命令显示打开中的文件\nstrace 命令可以显示进程的文件系统底层的详细操作时间\n">
+<meta property='og:url' content='//localhost:1313/posts/linux-performance-diagnosis-and-tuning-series-5-filesystem/'>
+<meta property='og:site_name' content=''>
+<meta property='og:type' content='article'><meta property='article:section' content='Posts' /><meta property='article:tag' content='Linux' /><meta property='article:tag' content='Linux性能诊断和调优系列' /><meta property='article:tag' content='filesystem' /><meta property='article:published_time' content='2024-06-14T19:31:55&#43;08:00'/><meta property='article:modified_time' content='2024-06-14T19:31:55&#43;08:00'/>
+<meta name="twitter:title" content="Linux性能诊断和调优系列(五)--文件系统篇">
+<meta name="twitter:description" content="Linux性能诊断和调优系列(五)&ndash;文件系统篇\n目录 如何查看文件系统？\next4好还是xfs好？\n使用xfs时的建议优化\n使用ext4时的建议优化\n关闭atime选项来提高性能\n如何测试文件系统性能？\nSSD和TRIM\next4的日志模式选择\nbarriers和掉电后的数据恢复\n总结和建议\n如何查看文件系统？ mount 命令列出挂载的文件系统及其挂载选项\ndf命令显示文件系统的使用情况\nsar 命令列出可用目录项、使用中的文件句柄数、使用中的inode数和伪终端数\nlsof 命令显示打开中的文件\nstrace 命令可以显示进程的文件系统底层的详细操作时间\n">
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="Toggle Menu">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/"></a></h1>
+            <h2 class="site-description"></h2>
+        </div>
+    </header><ol class="menu" id="main-menu">
+        
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>Dark Mode</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            
+            
+            
+            <a href="/categories/%E6%8A%80%E6%9C%AF/" style="background-color: hsl(154, 60%, 84%); color: hsl(154, 60%, 15%);">
+                技术
+            </a>
+        
+            
+            
+            
+            <a href="/categories/linux/" style="background-color: hsl(237, 60%, 84%); color: hsl(237, 60%, 15%);">
+                Linux
+            </a>
+        
+            
+            
+            
+            <a href="/categories/linux%E6%80%A7%E8%83%BD%E8%AF%8A%E6%96%AD%E5%92%8C%E8%B0%83%E4%BC%98%E7%B3%BB%E5%88%97/" style="background-color: hsl(341, 60%, 84%); color: hsl(341, 60%, 15%);">
+                Linux性能诊断和调优系列
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/posts/linux-performance-diagnosis-and-tuning-series-5-filesystem/">Linux性能诊断和调优系列(五)--文件系统篇</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    
+    
+    
+    <footer class="article-meta">
+        
+            <div class="inline-meta">
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                    <time class="article-time--published" datetime='2024-06-14T19:31:55&#43;08:00'>Friday, June 14, 2024</time>
+                
+
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                    <time class="article-time--reading">
+                        1 minute read
+                    </time>
+                
+            </div>
+        
+
+        
+
+        
+    </footer>
+    
+</div>
+
+</header>
+
+    
+
+    <section class="article-content">
+    
+    
+    <p>Linux性能诊断和调优系列(五)&ndash;文件系统篇<br>
+<img class="gallery-image" data-flex-basis="210px" data-flex-grow="87" height="299" loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px" src="/posts/linux-performance-diagnosis-and-tuning-series-5-filesystem/20240613_fs_01.png" width="262"></p>
+<h1 id="目录">目录
+</h1><p>如何查看文件系统？<br>
+ext4好还是xfs好？<br>
+使用xfs时的建议优化<br>
+使用ext4时的建议优化<br>
+关闭atime选项来提高性能<br>
+如何测试文件系统性能？<br>
+SSD和TRIM<br>
+ext4的日志模式选择<br>
+barriers和掉电后的数据恢复<br>
+总结和建议</p>
+<h1 id="如何查看文件系统">如何查看文件系统？
+</h1><p>mount 命令列出挂载的文件系统及其挂载选项<br>
+<img class="gallery-image" data-flex-basis="631px" data-flex-grow="263" height="266" loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px" src="/posts/linux-performance-diagnosis-and-tuning-series-5-filesystem/20240613_fs_mount.png" width="700"><br>
+df命令显示文件系统的使用情况<br>
+<img class="gallery-image" data-flex-basis="754px" data-flex-grow="314" height="139" loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px" src="/posts/linux-performance-diagnosis-and-tuning-series-5-filesystem/20240613_fs_df.png" width="437"><br>
+sar 命令列出可用目录项、使用中的文件句柄数、使用中的inode数和伪终端数<br>
+<img class="gallery-image" data-flex-basis="681px" data-flex-grow="283" height="155" loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px" src="/posts/linux-performance-diagnosis-and-tuning-series-5-filesystem/20240613_fs_sar.png" width="440"><br>
+lsof 命令显示打开中的文件<br>
+<img class="gallery-image" data-flex-basis="431px" data-flex-grow="179" height="569" loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px" src="/posts/linux-performance-diagnosis-and-tuning-series-5-filesystem/20240613_fs_lsof-1024x569.png" srcset="/posts/linux-performance-diagnosis-and-tuning-series-5-filesystem/20240613_fs_lsof-1024x569_hu_cb5621c8b5a8240a.png 800w, /posts/linux-performance-diagnosis-and-tuning-series-5-filesystem/20240613_fs_lsof-1024x569.png 1024w" width="1024"><br>
+strace 命令可以显示进程的文件系统底层的详细操作时间<br>
+<img class="gallery-image" data-flex-basis="506px" data-flex-grow="210" height="439" loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px" src="/posts/linux-performance-diagnosis-and-tuning-series-5-filesystem/20240613_fs_strace.png" srcset="/posts/linux-performance-diagnosis-and-tuning-series-5-filesystem/20240613_fs_strace_hu_49304aab71c3d206.png 800w, /posts/linux-performance-diagnosis-and-tuning-series-5-filesystem/20240613_fs_strace.png 926w" width="926"></p>
+<h1 id="ext4好还是xfs好">ext4好还是xfs好？
+</h1><p>xfs支持更大，更适合大文件系统，支持多种策略，支持在线扩容。但XFS不支持缩减容量！<br>
+ext4向上兼容ext2/3，更适合单线程、单磁盘、小文件的情况。ext4也支持在线扩容，而且支持离线时缩减容量。<br>
+除非有明确的需求，否则推荐使用xfs。</p>
+<h1 id="使用xfs时的建议优化">使用xfs时的建议优化
+</h1><p>对于xfs常用的使用场景，可以通过以下修改来增加性能。<br>
+xfs的inode大小默认是256，建议修改为512。<br>
+xfs的目录大小默认是4096，建议修改为8192。<br>
+如果使用了条带化，建议在文件系统层面对齐IO。<br>
+可以增大logbsize，从而减少IO。</p>
+<h1 id="使用ext4时的建议优化">使用ext4时的建议优化
+</h1><p>对于ext4常用的使用场景，可以通过以下修改来增加性能。<br>
+ext4的inode大小默认是256，建议修改为128。<br>
+建议增加目录的最大大小来增加每个目录的文件数量的限制。<br>
+如果使用了条带化，建议在文件系统层面对齐IO。</p>
+<h1 id="关闭atime选项来提高性能">关闭atime选项来提高性能
+</h1><p>atime是access time，理论上每次访问都应该被更新。所以我们可以禁用更新inode访问时间，从而在每次访问时不更新atime来提高性能，即使用noatime选项。</p>
+<h1 id="如何测试文件系统性能">如何测试文件系统性能？
+</h1><p>最常用自然是dd，但是要注意不要使用空文件，因为这样不会产生数据流，从而产生性能非常好的假象。有些存储厂商也使用这种方法，让客户以为他们的性能很好。<br>
+最常用的测试工具是fio，因为其有很多高级功能，可以各种自定义。下面是fio测试的一个例子<br>
+<img class="gallery-image" data-flex-basis="339px" data-flex-grow="141" height="541" loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px" src="/posts/linux-performance-diagnosis-and-tuning-series-5-filesystem/20240613_fs_fio.png" width="765"><br>
+常见的还有bonnie++。</p>
+<h1 id="ssd和trim">SSD和TRIM
+</h1><p>对于SSD，TRIM(TRansfer and Invalidate Memory command)特性允许操作系统告知 SSD 控制器哪些数据块不再使用，可以被安全地擦除。所以TRIM命令对于SSD的性能和寿命管理至关重要。Linux的TRIM有3种方式：<br>
+Batch discard：使用fstrim命令批量删除。<br>
+Scheduled bath discard：通过systemd来每周定时删除。<br>
+Online discard：实时删除。<br>
+建议使用Scheduled或Batch方式。</p>
+<h1 id="ext4的日志模式选择">ext4的日志模式选择
+</h1><p>ext4的日志有3种模式，默认是ordered。<br>
+ordered：在日志中只记录元数据，在文件数据被写到磁盘后日志才被提交。<br>
+writeback：在日志中只记录元数据，但不保证顺序，所以速度最快，但是在掉电以后数据可能会混乱。<br>
+journal：在日志中记录所有数据，最可靠，但性能最差。</p>
+<h1 id="barriers和掉电后的数据恢复">barriers和掉电后的数据恢复
+</h1><p>Write barriers是一种强制的写排序，当这个特性启用，数据的顺序就有保证了，从而在掉电以后，文件系统的数据恢复也有了更好的保证。<br>
+xfs和ext4都默认开启了这个特性，而且从kernel v4.10以后，关闭这个特性是不推荐的。<br>
+但是在有电池的缓存设备上，建议关闭这个特性，从而提高性能。</p>
+<h1 id="总结和建议">总结和建议
+</h1><ol>
+<li>除非你有明确的需求，否则推荐使用xfs。</li>
+<li>使用mount, df, du, sar, lsof等命令查看文件系统。</li>
+<li>使用strace等命令追踪文件系统底层的详细情况和性能。</li>
+<li>对于ext4和xfs都可以按使用场景优化。</li>
+<li>挂载时关闭atime选项来提高性能。</li>
+<li>使用dd, fio, bonnie++来测试文件系统的性能。</li>
+<li>对于SSD，注意TRIM的策略。</li>
+<li>对于ext4，按需选择日志策略。</li>
+<li>启用barriers可以让文件系统在掉电后的数据恢复有更好的保证。</li>
+</ol>
+<h1 id="更多内容请参见本系列其他文章">更多内容请参见本系列其他文章
+</h1><p>&laquo;Linux性能诊断和调优系列(一)&ndash;30秒3条命令诊断Linux性能瓶颈&raquo;<br>
+&laquo;Linux性能诊断和调优系列(二)&ndash;CPU篇&raquo;<br>
+&laquo;Linux性能诊断和调优系列(三)&ndash;内存篇&raquo;<br>
+&laquo;Linux性能诊断和调优系列(四)&ndash;硬盘篇&raquo;<br>
+&laquo;Linux性能诊断和调优系列(五)&ndash;文件系统篇&raquo;<br>
+&laquo;Linux性能诊断和调优系列(六)&ndash;网络篇&raquo;<br>
+&laquo;Linux性能诊断和调优系列(七)&ndash;虚拟机及容器篇&raquo;<br>
+&laquo;Linux性能诊断和调优系列(八)&ndash;虚拟环境性能调优案例&raquo;<br>
+&laquo;Linux性能诊断和调优系列(九)&ndash;计算密集型应用性能调优案例&raquo;<br>
+&laquo;Linux性能诊断和调优系列(十)&ndash;存储密集型应用性能调优案例&raquo;<br>
+&laquo;Linux性能诊断和调优系列(十一)&ndash;大内存型应用性能调优案例&raquo;</p>
+<p>本文内容为原创，如需转载，请务必注明原文出处。<br>
+更多相关内容，欢迎访问我的个人网站：hongxu.wang。<br>
+我们还提供免费的技术支持，欢迎通过公众号与我们联系。</p>
+
+</section>
+
+
+    <footer class="article-meta article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/linux/">Linux</a>
+        
+            <a href="/tags/linux%E6%80%A7%E8%83%BD%E8%AF%8A%E6%96%AD%E5%92%8C%E8%B0%83%E4%BC%98%E7%B3%BB%E5%88%97/">Linux性能诊断和调优系列</a>
+        
+            <a href="/tags/filesystem/">Filesystem</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+<aside>
+    <h2 class="section-title">Related content</h2>
+    <div class="subsection-list">
+        <div class="article-list--tile">
+            
+                
+<article class="">
+    <a href="/posts/linux-performance-diagnosis-and-tuning-series-4-disk/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux性能诊断和调优系列(四) -- 硬盘篇</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/linux-performance-diagnosis-and-tuning-series-3-memory/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux性能诊断和调优系列(三) -- 内存篇</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/linux-performance-diagnosis-and-tuning-series-2-cpu/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux性能诊断和调优系列(二) -- CPU篇</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/linux-performance-diagnosis-and-tuning-series-1-30-second-3-commands-to-diagnose-linux-performance-bottleneck/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux性能诊断和调优系列(一) -- 30秒3条命令诊断Linux性能瓶颈</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/setup-local-yum-repo-without-internet-in-lan/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">搭建不需要外网的局域网内yum源</h2>
+        </div>
+    </a>
+</article>
+            
+        </div>
+    </div>
+</aside>
+
+     
+    
+        
+        <div class="disqus-container">
+    
+</div>
+
+<style>
+    .disqus-container {
+        background-color: var(--card-background);
+        border-radius: var(--card-border-radius);
+        box-shadow: var(--shadow-l1);
+        padding: var(--card-padding);
+    }
+</style>
+
+<script>
+    window.addEventListener('onColorSchemeChange', (e) => {
+        if (typeof DISQUS == 'object') {
+            DISQUS.reset({
+                reload: true
+            });
+        }
+    })
+</script>
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+        2026 
+    </section>
+    
+    <section class="powerby">
+        Built with <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> <br />
+        Theme <b><a href="https://github.com/CaiJimmy/hugo-theme-stack" target="_blank" rel="noopener" data-version="4.0.0">Stack</a></b> designed by <a href="https://jimmycai.com" target="_blank" rel="noopener">Jimmy</a>
+    </section>
+</footer>
+
+
+    
+
+
+
+<script type="module">
+    import gallery from '\/ts\/gallery.js';
+
+    const articleContent = document.querySelector('.article-content');
+    const shouldLoad = articleContent && (articleContent.querySelectorAll('figure').length > 0 || articleContent.querySelectorAll('img.gallery-image').length > 0);
+    
+    if (shouldLoad) {
+        gallery(articleContent);
+
+        const PhotoSwipeLightbox = (await import("https:\/\/cdn.jsdelivr.net\/npm\/photoswipe@5.4.4\/dist\/photoswipe-lightbox.esm.min.js")).default;
+        const styleHref = "https:\/\/cdn.jsdelivr.net\/npm\/photoswipe@5.4.4\/dist\/photoswipe.css";
+
+        const styleTag = document.createElement('link');
+        styleTag.rel = 'stylesheet';
+        styleTag.href = styleHref;
+        document.head.appendChild(styleTag);
+
+        const lightbox = new PhotoSwipeLightbox({
+            gallerySelector: '.article-content',
+            childSelector: 'figure a.image-link',
+            pswpModule: () => import("https:\/\/cdn.jsdelivr.net\/npm\/photoswipe@5.4.4\/dist\/photoswipe.esm.min.js")
+        });
+        lightbox.init();
+    }
+</script>
+    
+
+            </main>
+        </div>
+        
+<script type="text/javascript" src="/ts/main.3ee067593935e3e391e923f2aa079d2b8173732410e5e89b88be5ea1545eeff7.js" defer></script>
+
+
+    </body>
+</html>

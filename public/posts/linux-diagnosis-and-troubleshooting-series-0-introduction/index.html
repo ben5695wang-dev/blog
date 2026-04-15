@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+    <head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="Linux诊断和故障排除系列\n今天起将新开一个系列——Linux诊断和故障排除系列。\n在这个系列中，我们将尽可能全面地覆盖Linux系统中可能遇到的各种故障场景，并提供详尽的解决步骤和策略。\n我们诚挚地希望这个系列能够得到您的喜欢，并期待您提出宝贵的意见和建议。您的每一条反馈都是我们不断进步和完善的宝贵资源。\n让我们一起探索Linux的奥秘，解决实际问题，提升我们的技术水平。感谢您的关注和支持！\n第一步：加电自检 若自检失败，可能是硬件故障。详情请参考&laquo;Linux诊断和故障排除系列(十) &ndash; 硬件问题日志&raquo;\n第二步：到达启动选项界面 若无法到达此界面，可能是启动分区出现问题。解决方案详见&laquo;Linux诊断和故障排除系列(一) &ndash; 修复启动分区&raquo;\n第三步：到达登录界面 若无法到达登录界面，可能是内核服务加载异常。修复方法请见&laquo;Linux诊断和故障排除系列(二) &ndash; 修复内核服务&raquo;\n第四步：登录操作系统 若登录失败，可能是由于密码错误。密码重置指南请参考&laquo;Linux诊断和故障排除系列(三) &ndash; 重置root密码&raquo;\n第五步：挂载本地文件系统 若挂载失败，可能是文件系统损坏。修复指导请见&laquo;Linux诊断和故障排除系列(四) &ndash; 修复文件系统&raquo;\n第六步：挂载远程磁盘和文件系统 若挂载远程磁盘和文件系统失败，可能是iSCSI配置问题。修复步骤请参考&laquo;Linux诊断和故障排除系列(五) &ndash; 修复iSCSI&raquo;\n第七步：安装、更新软件 若软件相关问题，可能是yum/dnf等软件包管理器出现问题。解决方案详见&laquo;Linux诊断和故障排除系列(六) &ndash; 修复软件包及管理器&raquo;\n第八步：启动应用程序 若应用程序启动失败，可能是应用程序本身存在问题。诊断方法请见&laquo;Linux诊断和故障排除系列(七) &ndash; 应用程序诊断&raquo;\n">
+<title>linux诊断和故障排除系列(零) -- 简介</title>
+
+
+<link rel="canonical" href="//localhost:1313/posts/linux-diagnosis-and-troubleshooting-series-0-introduction/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap">
+
+
+<link rel="stylesheet" href="/scss/style.min.389e156f5e9bb13df5a924cfa99dfb9c39f3e01e68d9e146cd65bdae963be145.css"><meta property='og:title' content="linux诊断和故障排除系列(零) -- 简介">
+<meta property='og:description' content="Linux诊断和故障排除系列\n今天起将新开一个系列——Linux诊断和故障排除系列。\n在这个系列中，我们将尽可能全面地覆盖Linux系统中可能遇到的各种故障场景，并提供详尽的解决步骤和策略。\n我们诚挚地希望这个系列能够得到您的喜欢，并期待您提出宝贵的意见和建议。您的每一条反馈都是我们不断进步和完善的宝贵资源。\n让我们一起探索Linux的奥秘，解决实际问题，提升我们的技术水平。感谢您的关注和支持！\n第一步：加电自检 若自检失败，可能是硬件故障。详情请参考&laquo;Linux诊断和故障排除系列(十) &ndash; 硬件问题日志&raquo;\n第二步：到达启动选项界面 若无法到达此界面，可能是启动分区出现问题。解决方案详见&laquo;Linux诊断和故障排除系列(一) &ndash; 修复启动分区&raquo;\n第三步：到达登录界面 若无法到达登录界面，可能是内核服务加载异常。修复方法请见&laquo;Linux诊断和故障排除系列(二) &ndash; 修复内核服务&raquo;\n第四步：登录操作系统 若登录失败，可能是由于密码错误。密码重置指南请参考&laquo;Linux诊断和故障排除系列(三) &ndash; 重置root密码&raquo;\n第五步：挂载本地文件系统 若挂载失败，可能是文件系统损坏。修复指导请见&laquo;Linux诊断和故障排除系列(四) &ndash; 修复文件系统&raquo;\n第六步：挂载远程磁盘和文件系统 若挂载远程磁盘和文件系统失败，可能是iSCSI配置问题。修复步骤请参考&laquo;Linux诊断和故障排除系列(五) &ndash; 修复iSCSI&raquo;\n第七步：安装、更新软件 若软件相关问题，可能是yum/dnf等软件包管理器出现问题。解决方案详见&laquo;Linux诊断和故障排除系列(六) &ndash; 修复软件包及管理器&raquo;\n第八步：启动应用程序 若应用程序启动失败，可能是应用程序本身存在问题。诊断方法请见&laquo;Linux诊断和故障排除系列(七) &ndash; 应用程序诊断&raquo;\n">
+<meta property='og:url' content='//localhost:1313/posts/linux-diagnosis-and-troubleshooting-series-0-introduction/'>
+<meta property='og:site_name' content=''>
+<meta property='og:type' content='article'><meta property='article:section' content='Posts' /><meta property='article:tag' content='Linux' /><meta property='article:tag' content='Linux诊断和故障排除' /><meta property='article:tag' content='linux诊断和故障排除简介' /><meta property='article:published_time' content='2024-06-30T20:02:29&#43;08:00'/><meta property='article:modified_time' content='2024-06-30T20:02:29&#43;08:00'/>
+<meta name="twitter:title" content="linux诊断和故障排除系列(零) -- 简介">
+<meta name="twitter:description" content="Linux诊断和故障排除系列\n今天起将新开一个系列——Linux诊断和故障排除系列。\n在这个系列中，我们将尽可能全面地覆盖Linux系统中可能遇到的各种故障场景，并提供详尽的解决步骤和策略。\n我们诚挚地希望这个系列能够得到您的喜欢，并期待您提出宝贵的意见和建议。您的每一条反馈都是我们不断进步和完善的宝贵资源。\n让我们一起探索Linux的奥秘，解决实际问题，提升我们的技术水平。感谢您的关注和支持！\n第一步：加电自检 若自检失败，可能是硬件故障。详情请参考&laquo;Linux诊断和故障排除系列(十) &ndash; 硬件问题日志&raquo;\n第二步：到达启动选项界面 若无法到达此界面，可能是启动分区出现问题。解决方案详见&laquo;Linux诊断和故障排除系列(一) &ndash; 修复启动分区&raquo;\n第三步：到达登录界面 若无法到达登录界面，可能是内核服务加载异常。修复方法请见&laquo;Linux诊断和故障排除系列(二) &ndash; 修复内核服务&raquo;\n第四步：登录操作系统 若登录失败，可能是由于密码错误。密码重置指南请参考&laquo;Linux诊断和故障排除系列(三) &ndash; 重置root密码&raquo;\n第五步：挂载本地文件系统 若挂载失败，可能是文件系统损坏。修复指导请见&laquo;Linux诊断和故障排除系列(四) &ndash; 修复文件系统&raquo;\n第六步：挂载远程磁盘和文件系统 若挂载远程磁盘和文件系统失败，可能是iSCSI配置问题。修复步骤请参考&laquo;Linux诊断和故障排除系列(五) &ndash; 修复iSCSI&raquo;\n第七步：安装、更新软件 若软件相关问题，可能是yum/dnf等软件包管理器出现问题。解决方案详见&laquo;Linux诊断和故障排除系列(六) &ndash; 修复软件包及管理器&raquo;\n第八步：启动应用程序 若应用程序启动失败，可能是应用程序本身存在问题。诊断方法请见&laquo;Linux诊断和故障排除系列(七) &ndash; 应用程序诊断&raquo;\n">
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="Toggle Menu">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/"></a></h1>
+            <h2 class="site-description"></h2>
+        </div>
+    </header><ol class="menu" id="main-menu">
+        
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>Dark Mode</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            
+            
+            
+            <a href="/categories/%E6%8A%80%E6%9C%AF/" style="background-color: hsl(154, 60%, 84%); color: hsl(154, 60%, 15%);">
+                技术
+            </a>
+        
+            
+            
+            
+            <a href="/categories/linux/" style="background-color: hsl(237, 60%, 84%); color: hsl(237, 60%, 15%);">
+                Linux
+            </a>
+        
+            
+            
+            
+            <a href="/categories/linux%E8%AF%8A%E6%96%AD%E5%92%8C%E6%95%85%E9%9A%9C%E6%8E%92%E9%99%A4/" style="background-color: hsl(283, 60%, 84%); color: hsl(283, 60%, 15%);">
+                Linux诊断和故障排除
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/posts/linux-diagnosis-and-troubleshooting-series-0-introduction/">linux诊断和故障排除系列(零) -- 简介</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    
+    
+    
+    <footer class="article-meta">
+        
+            <div class="inline-meta">
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                    <time class="article-time--published" datetime='2024-06-30T20:02:29&#43;08:00'>Sunday, June 30, 2024</time>
+                
+
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                    <time class="article-time--reading">
+                        1 minute read
+                    </time>
+                
+            </div>
+        
+
+        
+
+        
+    </footer>
+    
+</div>
+
+</header>
+
+    
+
+    <section class="article-content">
+    
+    
+    <p>Linux诊断和故障排除系列<br>
+今天起将新开一个系列——Linux诊断和故障排除系列。<br>
+在这个系列中，我们将尽可能全面地覆盖Linux系统中可能遇到的各种故障场景，并提供详尽的解决步骤和策略。<br>
+我们诚挚地希望这个系列能够得到您的喜欢，并期待您提出宝贵的意见和建议。您的每一条反馈都是我们不断进步和完善的宝贵资源。<br>
+让我们一起探索Linux的奥秘，解决实际问题，提升我们的技术水平。感谢您的关注和支持！</p>
+<p><img class="gallery-image" data-flex-basis="82px" data-flex-grow="34" height="2084" loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px" src="/posts/linux-diagnosis-and-troubleshooting-series-0-introduction/Linux_pd_00.jpg" width="714"></p>
+<h1 id="第一步加电自检">第一步：加电自检
+</h1><p>若自检失败，可能是硬件故障。详情请参考<a class="link" href="http://hongxu.wang/linux_pd_10_hardware_log"  title="&lt;&lt;Linux诊断和故障排除系列(十) -- 硬件问题日志&gt;&gt;"
+     target="_blank" rel="noopener"
+    >&laquo;Linux诊断和故障排除系列(十) &ndash; 硬件问题日志&raquo;</a></p>
+<h1 id="第二步到达启动选项界面">第二步：到达启动选项界面
+</h1><p>若无法到达此界面，可能是启动分区出现问题。解决方案详见<a class="link" href="http://hongxu.wang/linux_pd_01_boot"  title="&lt;&lt;Linux诊断和故障排除系列(一) -- 修复启动分区&gt;&gt;"
+     target="_blank" rel="noopener"
+    >&laquo;Linux诊断和故障排除系列(一) &ndash; 修复启动分区&raquo;</a></p>
+<h1 id="第三步到达登录界面">第三步：到达登录界面
+</h1><p>若无法到达登录界面，可能是内核服务加载异常。修复方法请见<a class="link" href="http://hongxu.wang/linux_pd_02_kennel_service"  title="&lt;&lt;Linux诊断和故障排除系列(二) -- 修复内核服务&gt;&gt;"
+     target="_blank" rel="noopener"
+    >&laquo;Linux诊断和故障排除系列(二) &ndash; 修复内核服务&raquo;</a></p>
+<h1 id="第四步登录操作系统">第四步：登录操作系统
+</h1><p>若登录失败，可能是由于密码错误。密码重置指南请参考<a class="link" href="http://hongxu.wang/linux_pd_03_reset_root_password"  title="&lt;&lt;Linux诊断和故障排除系列(三) -- 重置root密码&gt;&gt;"
+     target="_blank" rel="noopener"
+    >&laquo;Linux诊断和故障排除系列(三) &ndash; 重置root密码&raquo;</a></p>
+<h1 id="第五步挂载本地文件系统">第五步：挂载本地文件系统
+</h1><p>若挂载失败，可能是文件系统损坏。修复指导请见<a class="link" href="http://hongxu.wang/linux_pd_04_fix_fs"  title="&lt;&lt;Linux诊断和故障排除系列(四) -- 修复文件系统&gt;&gt;"
+     target="_blank" rel="noopener"
+    >&laquo;Linux诊断和故障排除系列(四) &ndash; 修复文件系统&raquo;</a></p>
+<h1 id="第六步挂载远程磁盘和文件系统">第六步：挂载远程磁盘和文件系统
+</h1><p>若挂载远程磁盘和文件系统失败，可能是iSCSI配置问题。修复步骤请参考<a class="link" href="http://hongxu.wang/linux_pd_05_fix_iscsi"  title="&lt;&lt;Linux诊断和故障排除系列(五) -- 修复iSCSI&gt;&gt;"
+     target="_blank" rel="noopener"
+    >&laquo;Linux诊断和故障排除系列(五) &ndash; 修复iSCSI&raquo;</a></p>
+<h1 id="第七步安装更新软件">第七步：安装、更新软件
+</h1><p>若软件相关问题，可能是yum/dnf等软件包管理器出现问题。解决方案详见<a class="link" href="http://hongxu.wang/linux_pd_06_fix_rpm_yum"  title="&lt;&lt;Linux诊断和故障排除系列(六) -- 修复软件包及管理器&gt;&gt;"
+     target="_blank" rel="noopener"
+    >&laquo;Linux诊断和故障排除系列(六) &ndash; 修复软件包及管理器&raquo;</a></p>
+<h1 id="第八步启动应用程序">第八步：启动应用程序
+</h1><p>若应用程序启动失败，可能是应用程序本身存在问题。诊断方法请见<a class="link" href="http://hongxu.wang/linux_pd_07_fix_app"  title="&lt;&lt;Linux诊断和故障排除系列(七) -- 应用程序诊断&gt;&gt;"
+     target="_blank" rel="noopener"
+    >&laquo;Linux诊断和故障排除系列(七) &ndash; 应用程序诊断&raquo;</a></p>
+<h1 id="第九步客户端连接至服务器">第九步：客户端连接至服务器
+</h1><p>若连接失败，可能是网络配置问题。网络问题诊断指南请参考<a class="link" href="http://hongxu.wang/linux_pd_08_fix_network"  title="&lt;&lt;Linux诊断和故障排除系列(八) -- 网络问题诊断&gt;&gt;"
+     target="_blank" rel="noopener"
+    >&laquo;Linux诊断和故障排除系列(八) &ndash; 网络问题诊断&raquo;</a></p>
+<h1 id="第十步身份验证">第十步：身份验证
+</h1><p>若身份验证失败，可能是认证和授权设置问题。解决方案请见<a class="link" href="http://hongxu.wang/linux_pd_09_fix_authentication"  title="&lt;&lt;Linux诊断和故障排除系列(九) -- 身份验证和授权问题诊断&gt;&gt;"
+     target="_blank" rel="noopener"
+    >&laquo;Linux诊断和故障排除系列(九) &ndash; 身份验证和授权问题诊断&raquo;</a></p>
+<h1 id="第十一步死机生成dump">第十一步：死机，生成dump
+</h1><p>当系统死机时，核心转储文件（dump）的生成与分析是关键。详细步骤请参考<a class="link" href="http://hongxu.wang/linux_pd_11_dump"  title="&lt;&lt;Linux诊断和故障排除系列(十一) -- dump设置和分析&gt;&gt;"
+     target="_blank" rel="noopener"
+    >&laquo;Linux诊断和故障排除系列(十一) &ndash; dump设置和分析&raquo;</a></p>
+<h1 id="第十二步收集官方支持数据">第十二步：收集官方支持数据
+</h1><p>sos_report是Red Hat及其衍生版(Centos/Ubuntu等)中默认自带的工具，用来收集系统的信息，以便在遇到问题时Red Hat原厂准确地诊断问题并提供官方技术支持。<br>
+关于sos_report数据的收集步骤，以及我的免费sos_report数据分析和可视化软件，请见<a class="link" href="ttp://hongxu.wang/linux_pd_13_sos_report"  title="&lt;&lt;Linux诊断和故障排除系列(十三) -- 官方支持数据sos_report及其分析可视化软件&gt;&gt;"
+    >&laquo;Linux诊断和故障排除系列(十三) &ndash; 官方支持数据sos_report及其分析可视化软件&raquo;</a></p>
+<h1 id="第十三步linux的日志持久化">第十三步：Linux的日志持久化
+</h1><p>了解如何持久化和管理Linux日志，以便于故障追踪和系统监控。详情请参考<a class="link" href="http://hongxu.wang/linux_pd_12_jounald"  title="&lt;&lt;Linux诊断和故障排除系列(十二) -- 日志持久化和转发&gt;&gt;"
+     target="_blank" rel="noopener"
+    >&laquo;Linux诊断和故障排除系列(十二) &ndash; 日志持久化和转发&raquo;</a></p>
+<p>本文内容为原创，如需转载，请务必注明原文出处。<br>
+更多相关内容，欢迎访问我的个人网站：hongxu.wang。<br>
+我们还提供免费的技术支持，欢迎与我们联系。</p>
+
+</section>
+
+
+    <footer class="article-meta article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/linux/">Linux</a>
+        
+            <a href="/tags/linux%E8%AF%8A%E6%96%AD%E5%92%8C%E6%95%85%E9%9A%9C%E6%8E%92%E9%99%A4/">Linux诊断和故障排除</a>
+        
+            <a href="/tags/linux%E8%AF%8A%E6%96%AD%E5%92%8C%E6%95%85%E9%9A%9C%E6%8E%92%E9%99%A4%E7%AE%80%E4%BB%8B/">Linux诊断和故障排除简介</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+<aside>
+    <h2 class="section-title">Related content</h2>
+    <div class="subsection-list">
+        <div class="article-list--tile">
+            
+                
+<article class="">
+    <a href="/posts/linux-diagnosis-and-troubleshooting-series-1-fix-boot-partition/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux诊断和故障排除系列(一) -- 修复启动分区</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/linux-performance-diagnosis-and-tuning-series-11-large-memory-application-tuning-case/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux性能诊断和调优系列(十一)--大内存型应用性能调优案例</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/linux-performance-diagnosis-and-tuning-series-10-storage-intensive-application-tuning-case/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux性能诊断和调优系列(十)--存储密集型应用性能调优案例</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/linux-performance-diagnosis-and-tuning-series-9-cpu-bound-application-tuning-case/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux性能诊断和调优系列(九)--计算密集型应用性能调优案例</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/linux-performance-diagnosis-and-tuning-series-8-virtualization-performance-tuning-case/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux性能诊断和调优系列(八)--虚拟环境性能调优案例</h2>
+        </div>
+    </a>
+</article>
+            
+        </div>
+    </div>
+</aside>
+
+     
+    
+        
+        <div class="disqus-container">
+    
+</div>
+
+<style>
+    .disqus-container {
+        background-color: var(--card-background);
+        border-radius: var(--card-border-radius);
+        box-shadow: var(--shadow-l1);
+        padding: var(--card-padding);
+    }
+</style>
+
+<script>
+    window.addEventListener('onColorSchemeChange', (e) => {
+        if (typeof DISQUS == 'object') {
+            DISQUS.reset({
+                reload: true
+            });
+        }
+    })
+</script>
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+        2026 
+    </section>
+    
+    <section class="powerby">
+        Built with <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> <br />
+        Theme <b><a href="https://github.com/CaiJimmy/hugo-theme-stack" target="_blank" rel="noopener" data-version="4.0.0">Stack</a></b> designed by <a href="https://jimmycai.com" target="_blank" rel="noopener">Jimmy</a>
+    </section>
+</footer>
+
+
+    
+
+
+
+<script type="module">
+    import gallery from '\/ts\/gallery.js';
+
+    const articleContent = document.querySelector('.article-content');
+    const shouldLoad = articleContent && (articleContent.querySelectorAll('figure').length > 0 || articleContent.querySelectorAll('img.gallery-image').length > 0);
+    
+    if (shouldLoad) {
+        gallery(articleContent);
+
+        const PhotoSwipeLightbox = (await import("https:\/\/cdn.jsdelivr.net\/npm\/photoswipe@5.4.4\/dist\/photoswipe-lightbox.esm.min.js")).default;
+        const styleHref = "https:\/\/cdn.jsdelivr.net\/npm\/photoswipe@5.4.4\/dist\/photoswipe.css";
+
+        const styleTag = document.createElement('link');
+        styleTag.rel = 'stylesheet';
+        styleTag.href = styleHref;
+        document.head.appendChild(styleTag);
+
+        const lightbox = new PhotoSwipeLightbox({
+            gallerySelector: '.article-content',
+            childSelector: 'figure a.image-link',
+            pswpModule: () => import("https:\/\/cdn.jsdelivr.net\/npm\/photoswipe@5.4.4\/dist\/photoswipe.esm.min.js")
+        });
+        lightbox.init();
+    }
+</script>
+    
+
+            </main>
+        </div>
+        
+<script type="text/javascript" src="/ts/main.3ee067593935e3e391e923f2aa079d2b8173732410e5e89b88be5ea1545eeff7.js" defer></script>
+
+
+    </body>
+</html>

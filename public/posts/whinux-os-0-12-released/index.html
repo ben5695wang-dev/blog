@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+    <head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="\n经过多年的积累和沉淀，Whinux 0.12发布，这是一款由我自主研发的小操作系统。\n适配华为、阿里巴巴平头哥、中科院香山等国产自研RISC-V架构CPU；\n遵循POSIX行业标准，与Linux和Unix兼容；\n支持64位、多CPU多进程多线程、进程调度、虚拟内存、分页分段、内存隔离、自研文件系统、快速数据恢复、并发和同步、进程间通信、多用户、用户认证等。\n感谢您的关注与支持！期待您的反馈！\n体验 Whinux OS 的多种方式 我们提供了以下几种方式让您方便地体验和使用 Whinux OS：\n浏览器：访问我的个人网站 http://hongxu.wang ，在浏览器中的直接访问 Whinux OS 的命令行界面（需提前预约）。这种方式无需安装任何额外软件，即可随时随地体验 Whinux OS。 **容器：**下载 Whinux OS 的 Docker 镜像（whinux_0.12），在容器环境中快速启动并运行 Whinux OS。这种方式简单便捷，适合在现有系统上快速部署和测试 Whinux OS **虚拟机：**下载 Whinux OS的虚拟机文件，在虚拟机中运行 Whinux OS。这种方式提供了更接近真实硬件环境的测试场景。 **源代码：**下载 Whinux OS 的源代码，自行编译并运行。这种方式不仅能深入了解 Whinux OS 的内部实现，还能根据需求进行定制开发。 ">
+<title>Whinux OS 0.12 发布！</title>
+
+
+<link rel="canonical" href="//localhost:1313/posts/whinux-os-0-12-released/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap">
+
+
+<link rel="stylesheet" href="/scss/style.min.389e156f5e9bb13df5a924cfa99dfb9c39f3e01e68d9e146cd65bdae963be145.css"><meta property='og:title' content="Whinux OS 0.12 发布！">
+<meta property='og:description' content="\n经过多年的积累和沉淀，Whinux 0.12发布，这是一款由我自主研发的小操作系统。\n适配华为、阿里巴巴平头哥、中科院香山等国产自研RISC-V架构CPU；\n遵循POSIX行业标准，与Linux和Unix兼容；\n支持64位、多CPU多进程多线程、进程调度、虚拟内存、分页分段、内存隔离、自研文件系统、快速数据恢复、并发和同步、进程间通信、多用户、用户认证等。\n感谢您的关注与支持！期待您的反馈！\n体验 Whinux OS 的多种方式 我们提供了以下几种方式让您方便地体验和使用 Whinux OS：\n浏览器：访问我的个人网站 http://hongxu.wang ，在浏览器中的直接访问 Whinux OS 的命令行界面（需提前预约）。这种方式无需安装任何额外软件，即可随时随地体验 Whinux OS。 **容器：**下载 Whinux OS 的 Docker 镜像（whinux_0.12），在容器环境中快速启动并运行 Whinux OS。这种方式简单便捷，适合在现有系统上快速部署和测试 Whinux OS **虚拟机：**下载 Whinux OS的虚拟机文件，在虚拟机中运行 Whinux OS。这种方式提供了更接近真实硬件环境的测试场景。 **源代码：**下载 Whinux OS 的源代码，自行编译并运行。这种方式不仅能深入了解 Whinux OS 的内部实现，还能根据需求进行定制开发。 ">
+<meta property='og:url' content='//localhost:1313/posts/whinux-os-0-12-released/'>
+<meta property='og:site_name' content=''>
+<meta property='og:type' content='article'><meta property='article:section' content='Posts' /><meta property='article:tag' content='Linux' /><meta property='article:tag' content='操作系统' /><meta property='article:tag' content='Whinux OS' /><meta property='article:published_time' content='2025-02-10T20:02:29&#43;08:00'/><meta property='article:modified_time' content='2025-02-10T20:02:29&#43;08:00'/>
+<meta name="twitter:title" content="Whinux OS 0.12 发布！">
+<meta name="twitter:description" content="\n经过多年的积累和沉淀，Whinux 0.12发布，这是一款由我自主研发的小操作系统。\n适配华为、阿里巴巴平头哥、中科院香山等国产自研RISC-V架构CPU；\n遵循POSIX行业标准，与Linux和Unix兼容；\n支持64位、多CPU多进程多线程、进程调度、虚拟内存、分页分段、内存隔离、自研文件系统、快速数据恢复、并发和同步、进程间通信、多用户、用户认证等。\n感谢您的关注与支持！期待您的反馈！\n体验 Whinux OS 的多种方式 我们提供了以下几种方式让您方便地体验和使用 Whinux OS：\n浏览器：访问我的个人网站 http://hongxu.wang ，在浏览器中的直接访问 Whinux OS 的命令行界面（需提前预约）。这种方式无需安装任何额外软件，即可随时随地体验 Whinux OS。 **容器：**下载 Whinux OS 的 Docker 镜像（whinux_0.12），在容器环境中快速启动并运行 Whinux OS。这种方式简单便捷，适合在现有系统上快速部署和测试 Whinux OS **虚拟机：**下载 Whinux OS的虚拟机文件，在虚拟机中运行 Whinux OS。这种方式提供了更接近真实硬件环境的测试场景。 **源代码：**下载 Whinux OS 的源代码，自行编译并运行。这种方式不仅能深入了解 Whinux OS 的内部实现，还能根据需求进行定制开发。 ">
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="Toggle Menu">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/"></a></h1>
+            <h2 class="site-description"></h2>
+        </div>
+    </header><ol class="menu" id="main-menu">
+        
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>Dark Mode</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            
+            
+            
+            <a href="/categories/%E6%8A%80%E6%9C%AF/" style="background-color: hsl(154, 60%, 84%); color: hsl(154, 60%, 15%);">
+                技术
+            </a>
+        
+            
+            
+            
+            <a href="/categories/%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/" style="background-color: hsl(156, 60%, 84%); color: hsl(156, 60%, 15%);">
+                操作系统
+            </a>
+        
+            
+            
+            
+            <a href="/categories/whinux-os/" style="background-color: hsl(250, 60%, 84%); color: hsl(250, 60%, 15%);">
+                Whinux OS
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/posts/whinux-os-0-12-released/">Whinux OS 0.12 发布！</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    
+    
+    
+    <footer class="article-meta">
+        
+            <div class="inline-meta">
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                    <time class="article-time--published" datetime='2025-02-10T20:02:29&#43;08:00'>Monday, February 10, 2025</time>
+                
+
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                    <time class="article-time--reading">
+                        1 minute read
+                    </time>
+                
+            </div>
+        
+
+        
+
+        
+    </footer>
+    
+</div>
+
+</header>
+
+    
+
+    <section class="article-content">
+    
+    
+    <p><img class="gallery-image" data-flex-basis="406px" data-flex-grow="169" height="236" loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px" src="/posts/whinux-os-0-12-released/Whinux_OS_0.12_a.gif" width="400"></p>
+<p>经过多年的积累和沉淀，Whinux 0.12发布，这是一款由我自主研发的小操作系统。<br>
+适配华为、阿里巴巴平头哥、中科院香山等国产自研RISC-V架构CPU；<br>
+遵循POSIX行业标准，与Linux和Unix兼容；<br>
+支持64位、多CPU多进程多线程、进程调度、虚拟内存、分页分段、内存隔离、自研文件系统、快速数据恢复、并发和同步、进程间通信、多用户、用户认证等。</p>
+<p>感谢您的关注与支持！期待您的反馈！</p>
+<h1 id="体验-whinux-os-的多种方式">体验 Whinux OS 的多种方式
+</h1><p>我们提供了以下几种方式让您方便地体验和使用 Whinux OS：</p>
+<ul>
+<li><strong>浏览器</strong>：访问我的个人网站 <a class="link" href="http://hongxu.wang"  target="_blank" rel="noopener"
+    >http://hongxu.wang</a> ，在浏览器中的直接访问 Whinux OS 的命令行界面（需提前预约）。这种方式无需安装任何额外软件，即可随时随地体验 Whinux OS。</li>
+<li>**容器：**下载 Whinux OS 的 Docker 镜像（whinux_0.12），在容器环境中快速启动并运行 Whinux OS。这种方式简单便捷，适合在现有系统上快速部署和测试 Whinux OS</li>
+<li>**虚拟机：**下载 Whinux OS的虚拟机文件，在虚拟机中运行 Whinux OS。这种方式提供了更接近真实硬件环境的测试场景。</li>
+<li>**源代码：**下载 Whinux OS 的源代码，自行编译并运行。这种方式不仅能深入了解 Whinux OS 的内部实现，还能根据需求进行定制开发。</li>
+</ul>
+<!-- raw HTML omitted -->
+<p><img class="gallery-image" data-flex-basis="279px" data-flex-grow="116" height="725" loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px" src="/posts/whinux-os-0-12-released/Whinux_0.12_boot_11.png" srcset="/posts/whinux-os-0-12-released/Whinux_0.12_boot_11_hu_c60b4d64ac287645.png 800w, /posts/whinux-os-0-12-released/Whinux_0.12_boot_11.png 844w" width="844"></p>
+<p><img class="gallery-image" data-flex-basis="287px" data-flex-grow="119" height="710" loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px" src="/posts/whinux-os-0-12-released/Whinux_0.12_boot_12.png" srcset="/posts/whinux-os-0-12-released/Whinux_0.12_boot_12_hu_1dabb543f0778584.png 800w, /posts/whinux-os-0-12-released/Whinux_0.12_boot_12.png 851w" width="851"></p>
+<p><img class="gallery-image" data-flex-basis="528px" data-flex-grow="220" height="683" loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px" src="/posts/whinux-os-0-12-released/Whinux_0.12_boot_13.png" srcset="/posts/whinux-os-0-12-released/Whinux_0.12_boot_13_hu_57dc7245685ddaf3.png 800w, /posts/whinux-os-0-12-released/Whinux_0.12_boot_13.png 1503w" width="1503"></p>
+<h1 id="系统需求">系统需求
+</h1><p>查看以下信息以确定运行 Whinux 0.12所需的最低系统需求和建议系统需求。</p>
+<h1 id="系统特性">系统特性
+</h1><p>64位架构。<br>
+多CPU多进程多线程：支持多CPU、多核心、多线程、多进程、进程调度。<br>
+虚拟内存管理：支持虚拟内存、分页分段、内存隔离。<br>
+自研文件系统：自研了文件系统、快速数据恢复。<br>
+支持并发和同步、进程间通信、多用户、用户认证等。<br>
+遵循 POSIX 标准：兼容 Linux 和 Unix</p>
+<h1 id="必需硬件">必需硬件
+</h1><p>适配包括华为、阿里巴巴平头哥、中科院香山等知名机构发布的国产处理器。<br>
+适配 RISC-V处理器的 64 位硬件平台机器，支持QEMU虚拟机方式。</p>
+<h1 id="内存需求和内存大小容量限制">内存需求和内存大小容量限制
+</h1><p>Whinux 0.12 最低内存需求因配置而异。<br>
+Whinux 0.12 的最低内存建议为 128 MB。<br>
+Whinux 0.12 随着最大设备数量扩展而增加当前最低内存需求。<br>
+对于Whinux 0.12，系统支持最大物理内存容量为 72 PB，最大虚拟内存容量512GB，这是由于Whinux采用了Sv39，可以按需升级为Sv64标准，即支持最大物理内存容量为 16 EB，最大虚拟内存容量16 EB。</p>
+<h1 id="磁盘需求">磁盘需求
+</h1><p>Whinux 0.12 建议至少 1GB 的物理磁盘空间用于包含所有默认软件。</p>
+<h1 id="文件系统和文件大小容量限制">文件系统和文件大小容量限制
+</h1><p>Whinux 0.12，单个文件可采用三级间接索引，单个文件最大16GB；Whinux 0.12的日志型文件系统支持最大容量可按需扩展。</p>
+
+</section>
+
+
+    <footer class="article-meta article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/linux/">Linux</a>
+        
+            <a href="/tags/%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/">操作系统</a>
+        
+            <a href="/tags/whinux-os/">Whinux OS</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+<aside>
+    <h2 class="section-title">Related content</h2>
+    <div class="subsection-list">
+        <div class="article-list--tile">
+            
+                
+<article class="">
+    <a href="/posts/storage-snap-analysis-and-visualization-tool/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">存储snap分析与可视化展示工具(IBM Storwize系列、FlashSystem系列、联想Storwize系列、浪潮部分AS系列)</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/aix-snap-analysis-and-visualization-tool/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">AIX snap分析与可视化展示工具</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/linux-diagnosis-and-troubleshooting-series-13-sosreport/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux诊断和故障排除系列(十三) -- 官方支持数据sos_report及其分析可视化软件</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/linux-diagnosis-and-troubleshooting-series-12-log-persistence-and-forwarding/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux诊断和故障排除系列(十二) -- 日志持久化和转发</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/linux-diagnosis-and-troubleshooting-series-11-dump-setup-and-analysis/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux诊断和故障排除系列(十一) -- dump设置和分析</h2>
+        </div>
+    </a>
+</article>
+            
+        </div>
+    </div>
+</aside>
+
+     
+    
+        
+        <div class="disqus-container">
+    
+</div>
+
+<style>
+    .disqus-container {
+        background-color: var(--card-background);
+        border-radius: var(--card-border-radius);
+        box-shadow: var(--shadow-l1);
+        padding: var(--card-padding);
+    }
+</style>
+
+<script>
+    window.addEventListener('onColorSchemeChange', (e) => {
+        if (typeof DISQUS == 'object') {
+            DISQUS.reset({
+                reload: true
+            });
+        }
+    })
+</script>
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+        2026 
+    </section>
+    
+    <section class="powerby">
+        Built with <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> <br />
+        Theme <b><a href="https://github.com/CaiJimmy/hugo-theme-stack" target="_blank" rel="noopener" data-version="4.0.0">Stack</a></b> designed by <a href="https://jimmycai.com" target="_blank" rel="noopener">Jimmy</a>
+    </section>
+</footer>
+
+
+    
+
+
+
+<script type="module">
+    import gallery from '\/ts\/gallery.js';
+
+    const articleContent = document.querySelector('.article-content');
+    const shouldLoad = articleContent && (articleContent.querySelectorAll('figure').length > 0 || articleContent.querySelectorAll('img.gallery-image').length > 0);
+    
+    if (shouldLoad) {
+        gallery(articleContent);
+
+        const PhotoSwipeLightbox = (await import("https:\/\/cdn.jsdelivr.net\/npm\/photoswipe@5.4.4\/dist\/photoswipe-lightbox.esm.min.js")).default;
+        const styleHref = "https:\/\/cdn.jsdelivr.net\/npm\/photoswipe@5.4.4\/dist\/photoswipe.css";
+
+        const styleTag = document.createElement('link');
+        styleTag.rel = 'stylesheet';
+        styleTag.href = styleHref;
+        document.head.appendChild(styleTag);
+
+        const lightbox = new PhotoSwipeLightbox({
+            gallerySelector: '.article-content',
+            childSelector: 'figure a.image-link',
+            pswpModule: () => import("https:\/\/cdn.jsdelivr.net\/npm\/photoswipe@5.4.4\/dist\/photoswipe.esm.min.js")
+        });
+        lightbox.init();
+    }
+</script>
+    
+
+            </main>
+        </div>
+        
+<script type="text/javascript" src="/ts/main.3ee067593935e3e391e923f2aa079d2b8173732410e5e89b88be5ea1545eeff7.js" defer></script>
+
+
+    </body>
+</html>

@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+    <head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="Load average 本文阐述了在Linux中load average的发展过程、相关源代码和其意义\n1.结论 1.1一句话结论 Linux中的load average，可以粗略理解为1分钟、5分钟、15分钟内正在运行的进程数的平均值。\n1.2一段话结论 Linux中的load average，是统计状态为R和D的进程数的和，在1分钟、5分钟、15分钟内的三个平均值。\n但是并不是真正的平均值，而是大约每5秒取一次值，使用指数移动平均算法，随着时间呈现的指数衰减的一个数值。\nload average体现的是一个随着时间变化的系统负载的趋势，这个指标其实没什么用！\n1.3如何判断这个值好坏 1.先看CPU数量\nCPU数量=物理CPU个数 * 每个物理CPU的核心数 * 2(如果开启了超线程)\n# cat /proc/cpuinfo | grep &#34;processor&#34; | wc -l 2.查询处于(R)可执行状态和(D)不可中断睡眠状态的进程数\n# ps -eo stat | grep ^[RD] | wc -l 3.然后用这个值除以CPU数量，得出一个值：得出的值不大于3的话那么系统的性能就是良好的，如果(每个CPU的任务数)大于5，那么这个系统可能会存在性能问题。\n但是也仅仅是可能存在性能问题，因为下文可以看到，这个值可以很大，我在4c的虚拟机上将这个值跑到480也没问题。\n原因是Linux的load average统计了处理R和D状态的运行数，因此这个值就不是一个只和CPU相关的值，还和I/O有关，所以当这个值偏大时，要看是什么引起了整个system层面的负载，而不一定是CPU。\n2.进程 2.1进程的状态 在ps的帮助手册中可以看到进程状态的解释如下\nHere are the different values that the s, stat and state output specifiers (header &#34;STAT&#34; or &#34;S&#34;) will display to describe the state of a process: D uninterruptible sleep (usually IO) R running or runnable (on run queue) S interruptible sleep (waiting for an event to complete) T stopped by job control signal t stopped by debugger during the tracing W paging (not valid since the 2.6.xx kernel) X dead (should never be seen) Z defunct (&#34;zombie&#34;) process, terminated but not reaped by its parent For BSD formats and when the stat keyword is used, additional characters may be displayed: &lt; high-priority (not nice to other users) N low-priority (nice to other users) L has pages locked into memory (for real-time and custom IO) s is a session leader l is multi-threaded (using CLONE_THREAD, like NPTL pthreads do) + is in the foreground process group 2.2查看进程的命令 # ps -eo stat | grep ^[RD] | wc -l 1 # ps -eo pid,time,cmd,stat|more PID TIME CMD STAT 1 00:00:12 /usr/lib/systemd/systemd -- Ss 2 00:00:00 [kthreadd] S 4 00:00:00 [kworker/0:0H] S&lt; # ps -eLF | wc -l 455 # ps axms | wc -l 649 # pstree systemd-+-ModemManager---2*[{ModemManager}] |-NetworkManager---2*[{NetworkManager}] ...... |-containerd-shim-+-start.sh-+-crond | | `-sudo---rsyslogd---6*[{rsyslogd}] | `-10*[{containerd-shim}] |-containerd-shim-+-redis-server---4*[{redis-server}] | `-11*[{containerd-shim}] ...... # ps -ef --forest root 2996 1 0 02:36 ? 00:01:38 /usr/bin/dockerd -H fd:// --containerd=/run/containerd/containerd.sock root 12768 2996 0 07:38 ? 00:00:00 \\_ /usr/bin/docker-proxy -proto tcp -host-ip 127.0.0.1 -host-port 1514 -container-ip 172.18.0.2 -container-port 10514 root 13384 2996 0 07:38 ? 00:00:00 \\_ /usr/bin/docker-proxy -proto tcp -host-ip 0.0.0.0 -host-port 80 -container-ip 172.18.0.10 -container-port 8080 root 13391 2996 0 07:38 ? 00:00:00 \\_ /usr/bin/docker-proxy -proto tcp -host-ip :: -host-port 80 -container-ip 172.18.0.10 -container-port 8080 gdm 4126 1 0 02:36 ? 00:00:00 dbus-launch --exit-with-session /usr/libexec/gnome-session-binary --autostart /usr/share/gdm/greeter/autostart ...... 2.3cat /proc/loadavg 这个文件有五个值\n">
+<title>Linux中的load average</title>
+
+
+<link rel="canonical" href="//localhost:1313/posts/linux-load-average/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap">
+
+
+<link rel="stylesheet" href="/scss/style.min.389e156f5e9bb13df5a924cfa99dfb9c39f3e01e68d9e146cd65bdae963be145.css"><meta property='og:title' content="Linux中的load average">
+<meta property='og:description' content="Load average 本文阐述了在Linux中load average的发展过程、相关源代码和其意义\n1.结论 1.1一句话结论 Linux中的load average，可以粗略理解为1分钟、5分钟、15分钟内正在运行的进程数的平均值。\n1.2一段话结论 Linux中的load average，是统计状态为R和D的进程数的和，在1分钟、5分钟、15分钟内的三个平均值。\n但是并不是真正的平均值，而是大约每5秒取一次值，使用指数移动平均算法，随着时间呈现的指数衰减的一个数值。\nload average体现的是一个随着时间变化的系统负载的趋势，这个指标其实没什么用！\n1.3如何判断这个值好坏 1.先看CPU数量\nCPU数量=物理CPU个数 * 每个物理CPU的核心数 * 2(如果开启了超线程)\n# cat /proc/cpuinfo | grep &#34;processor&#34; | wc -l 2.查询处于(R)可执行状态和(D)不可中断睡眠状态的进程数\n# ps -eo stat | grep ^[RD] | wc -l 3.然后用这个值除以CPU数量，得出一个值：得出的值不大于3的话那么系统的性能就是良好的，如果(每个CPU的任务数)大于5，那么这个系统可能会存在性能问题。\n但是也仅仅是可能存在性能问题，因为下文可以看到，这个值可以很大，我在4c的虚拟机上将这个值跑到480也没问题。\n原因是Linux的load average统计了处理R和D状态的运行数，因此这个值就不是一个只和CPU相关的值，还和I/O有关，所以当这个值偏大时，要看是什么引起了整个system层面的负载，而不一定是CPU。\n2.进程 2.1进程的状态 在ps的帮助手册中可以看到进程状态的解释如下\nHere are the different values that the s, stat and state output specifiers (header &#34;STAT&#34; or &#34;S&#34;) will display to describe the state of a process: D uninterruptible sleep (usually IO) R running or runnable (on run queue) S interruptible sleep (waiting for an event to complete) T stopped by job control signal t stopped by debugger during the tracing W paging (not valid since the 2.6.xx kernel) X dead (should never be seen) Z defunct (&#34;zombie&#34;) process, terminated but not reaped by its parent For BSD formats and when the stat keyword is used, additional characters may be displayed: &lt; high-priority (not nice to other users) N low-priority (nice to other users) L has pages locked into memory (for real-time and custom IO) s is a session leader l is multi-threaded (using CLONE_THREAD, like NPTL pthreads do) + is in the foreground process group 2.2查看进程的命令 # ps -eo stat | grep ^[RD] | wc -l 1 # ps -eo pid,time,cmd,stat|more PID TIME CMD STAT 1 00:00:12 /usr/lib/systemd/systemd -- Ss 2 00:00:00 [kthreadd] S 4 00:00:00 [kworker/0:0H] S&lt; # ps -eLF | wc -l 455 # ps axms | wc -l 649 # pstree systemd-+-ModemManager---2*[{ModemManager}] |-NetworkManager---2*[{NetworkManager}] ...... |-containerd-shim-+-start.sh-+-crond | | `-sudo---rsyslogd---6*[{rsyslogd}] | `-10*[{containerd-shim}] |-containerd-shim-+-redis-server---4*[{redis-server}] | `-11*[{containerd-shim}] ...... # ps -ef --forest root 2996 1 0 02:36 ? 00:01:38 /usr/bin/dockerd -H fd:// --containerd=/run/containerd/containerd.sock root 12768 2996 0 07:38 ? 00:00:00 \\_ /usr/bin/docker-proxy -proto tcp -host-ip 127.0.0.1 -host-port 1514 -container-ip 172.18.0.2 -container-port 10514 root 13384 2996 0 07:38 ? 00:00:00 \\_ /usr/bin/docker-proxy -proto tcp -host-ip 0.0.0.0 -host-port 80 -container-ip 172.18.0.10 -container-port 8080 root 13391 2996 0 07:38 ? 00:00:00 \\_ /usr/bin/docker-proxy -proto tcp -host-ip :: -host-port 80 -container-ip 172.18.0.10 -container-port 8080 gdm 4126 1 0 02:36 ? 00:00:00 dbus-launch --exit-with-session /usr/libexec/gnome-session-binary --autostart /usr/share/gdm/greeter/autostart ...... 2.3cat /proc/loadavg 这个文件有五个值\n">
+<meta property='og:url' content='//localhost:1313/posts/linux-load-average/'>
+<meta property='og:site_name' content=''>
+<meta property='og:type' content='article'><meta property='article:section' content='Posts' /><meta property='article:tag' content='Linux' /><meta property='article:tag' content='load average' /><meta property='article:published_time' content='2023-02-16T19:31:55&#43;08:00'/><meta property='article:modified_time' content='2023-02-16T19:31:55&#43;08:00'/>
+<meta name="twitter:title" content="Linux中的load average">
+<meta name="twitter:description" content="Load average 本文阐述了在Linux中load average的发展过程、相关源代码和其意义\n1.结论 1.1一句话结论 Linux中的load average，可以粗略理解为1分钟、5分钟、15分钟内正在运行的进程数的平均值。\n1.2一段话结论 Linux中的load average，是统计状态为R和D的进程数的和，在1分钟、5分钟、15分钟内的三个平均值。\n但是并不是真正的平均值，而是大约每5秒取一次值，使用指数移动平均算法，随着时间呈现的指数衰减的一个数值。\nload average体现的是一个随着时间变化的系统负载的趋势，这个指标其实没什么用！\n1.3如何判断这个值好坏 1.先看CPU数量\nCPU数量=物理CPU个数 * 每个物理CPU的核心数 * 2(如果开启了超线程)\n# cat /proc/cpuinfo | grep &#34;processor&#34; | wc -l 2.查询处于(R)可执行状态和(D)不可中断睡眠状态的进程数\n# ps -eo stat | grep ^[RD] | wc -l 3.然后用这个值除以CPU数量，得出一个值：得出的值不大于3的话那么系统的性能就是良好的，如果(每个CPU的任务数)大于5，那么这个系统可能会存在性能问题。\n但是也仅仅是可能存在性能问题，因为下文可以看到，这个值可以很大，我在4c的虚拟机上将这个值跑到480也没问题。\n原因是Linux的load average统计了处理R和D状态的运行数，因此这个值就不是一个只和CPU相关的值，还和I/O有关，所以当这个值偏大时，要看是什么引起了整个system层面的负载，而不一定是CPU。\n2.进程 2.1进程的状态 在ps的帮助手册中可以看到进程状态的解释如下\nHere are the different values that the s, stat and state output specifiers (header &#34;STAT&#34; or &#34;S&#34;) will display to describe the state of a process: D uninterruptible sleep (usually IO) R running or runnable (on run queue) S interruptible sleep (waiting for an event to complete) T stopped by job control signal t stopped by debugger during the tracing W paging (not valid since the 2.6.xx kernel) X dead (should never be seen) Z defunct (&#34;zombie&#34;) process, terminated but not reaped by its parent For BSD formats and when the stat keyword is used, additional characters may be displayed: &lt; high-priority (not nice to other users) N low-priority (nice to other users) L has pages locked into memory (for real-time and custom IO) s is a session leader l is multi-threaded (using CLONE_THREAD, like NPTL pthreads do) + is in the foreground process group 2.2查看进程的命令 # ps -eo stat | grep ^[RD] | wc -l 1 # ps -eo pid,time,cmd,stat|more PID TIME CMD STAT 1 00:00:12 /usr/lib/systemd/systemd -- Ss 2 00:00:00 [kthreadd] S 4 00:00:00 [kworker/0:0H] S&lt; # ps -eLF | wc -l 455 # ps axms | wc -l 649 # pstree systemd-+-ModemManager---2*[{ModemManager}] |-NetworkManager---2*[{NetworkManager}] ...... |-containerd-shim-+-start.sh-+-crond | | `-sudo---rsyslogd---6*[{rsyslogd}] | `-10*[{containerd-shim}] |-containerd-shim-+-redis-server---4*[{redis-server}] | `-11*[{containerd-shim}] ...... # ps -ef --forest root 2996 1 0 02:36 ? 00:01:38 /usr/bin/dockerd -H fd:// --containerd=/run/containerd/containerd.sock root 12768 2996 0 07:38 ? 00:00:00 \\_ /usr/bin/docker-proxy -proto tcp -host-ip 127.0.0.1 -host-port 1514 -container-ip 172.18.0.2 -container-port 10514 root 13384 2996 0 07:38 ? 00:00:00 \\_ /usr/bin/docker-proxy -proto tcp -host-ip 0.0.0.0 -host-port 80 -container-ip 172.18.0.10 -container-port 8080 root 13391 2996 0 07:38 ? 00:00:00 \\_ /usr/bin/docker-proxy -proto tcp -host-ip :: -host-port 80 -container-ip 172.18.0.10 -container-port 8080 gdm 4126 1 0 02:36 ? 00:00:00 dbus-launch --exit-with-session /usr/libexec/gnome-session-binary --autostart /usr/share/gdm/greeter/autostart ...... 2.3cat /proc/loadavg 这个文件有五个值\n">
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="Toggle Menu">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/"></a></h1>
+            <h2 class="site-description"></h2>
+        </div>
+    </header><ol class="menu" id="main-menu">
+        
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>Dark Mode</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            
+            
+            
+            <a href="/categories/%E6%8A%80%E6%9C%AF/" style="background-color: hsl(154, 60%, 84%); color: hsl(154, 60%, 15%);">
+                技术
+            </a>
+        
+            
+            
+            
+            <a href="/categories/linux/" style="background-color: hsl(237, 60%, 84%); color: hsl(237, 60%, 15%);">
+                Linux
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/posts/linux-load-average/">Linux中的load average</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    
+    
+    
+    <footer class="article-meta">
+        
+            <div class="inline-meta">
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                    <time class="article-time--published" datetime='2023-02-16T19:31:55&#43;08:00'>Thursday, February 16, 2023</time>
+                
+
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                    <time class="article-time--reading">
+                        9 minutes read
+                    </time>
+                
+            </div>
+        
+
+        
+
+        
+    </footer>
+    
+</div>
+
+</header>
+
+    
+
+    <section class="article-content">
+    
+    
+    <h1 id="load-average">Load average
+</h1><p>本文阐述了在Linux中load average的发展过程、相关源代码和其意义</p>
+<h2 id="1结论">1.结论
+</h2><h3 id="11一句话结论">1.1一句话结论
+</h3><p>Linux中的load average，可以粗略理解为1分钟、5分钟、15分钟内正在运行的进程数的平均值。</p>
+<h3 id="12一段话结论">1.2一段话结论
+</h3><p>Linux中的load average，是统计状态为R和D的进程数的和，在1分钟、5分钟、15分钟内的三个平均值。<br>
+但是并不是真正的平均值，而是大约每5秒取一次值，使用指数移动平均算法，随着时间呈现的指数衰减的一个数值。<br>
+load average体现的是一个随着时间变化的系统负载的趋势，这个指标其实没什么用！</p>
+<h3 id="13如何判断这个值好坏">1.3如何判断这个值好坏
+</h3><p>1.先看CPU数量<br>
+CPU数量=物理CPU个数 * 每个物理CPU的核心数 * 2(如果开启了超线程)</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl"><span class="c1"># cat /proc/cpuinfo | grep &#34;processor&#34; | wc -l</span>
+</span></span></code></pre></div><p>2.查询处于(R)可执行状态和(D)不可中断睡眠状态的进程数</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl"><span class="c1"># ps -eo stat | grep ^[RD] | wc -l</span>
+</span></span></code></pre></div><p>3.然后用这个值除以CPU数量，得出一个值：得出的值不大于3的话那么系统的性能就是良好的，如果(每个CPU的任务数)大于5，那么这个系统可能会存在性能问题。<br>
+但是也仅仅是可能存在性能问题，因为下文可以看到，这个值可以很大，我在4c的虚拟机上将这个值跑到480也没问题。<br>
+原因是Linux的load average统计了处理R和D状态的运行数，因此这个值就不是一个只和CPU相关的值，还和I/O有关，所以当这个值偏大时，要看是什么引起了整个system层面的负载，而不一定是CPU。</p>
+<h2 id="2进程">2.进程
+</h2><h3 id="21进程的状态">2.1进程的状态
+</h3><p>在ps的帮助手册中可以看到进程状态的解释如下</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-gdscript3" data-lang="gdscript3"><span class="line"><span class="cl"><span class="n">Here</span> <span class="n">are</span> <span class="n">the</span> <span class="n">different</span> <span class="n">values</span> <span class="n">that</span> <span class="n">the</span> <span class="n">s</span><span class="p">,</span> <span class="n">stat</span> <span class="ow">and</span> <span class="n">state</span> <span class="n">output</span> <span class="n">specifiers</span> <span class="p">(</span><span class="n">header</span> <span class="s2">&#34;STAT&#34;</span> <span class="ow">or</span> <span class="s2">&#34;S&#34;</span><span class="p">)</span> <span class="n">will</span> <span class="n">display</span> <span class="n">to</span> <span class="n">describe</span> <span class="n">the</span> <span class="n">state</span> <span class="n">of</span> <span class="n">a</span> <span class="n">process</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="n">D</span>    <span class="n">uninterruptible</span> <span class="n">sleep</span> <span class="p">(</span><span class="n">usually</span> <span class="n">IO</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="n">R</span>    <span class="n">running</span> <span class="ow">or</span> <span class="n">runnable</span> <span class="p">(</span><span class="n">on</span> <span class="n">run</span> <span class="n">queue</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="n">S</span>    <span class="n">interruptible</span> <span class="n">sleep</span> <span class="p">(</span><span class="n">waiting</span> <span class="k">for</span> <span class="n">an</span> <span class="n">event</span> <span class="n">to</span> <span class="n">complete</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="n">T</span>    <span class="n">stopped</span> <span class="n">by</span> <span class="n">job</span> <span class="n">control</span> <span class="k">signal</span>
+</span></span><span class="line"><span class="cl">        <span class="n">t</span>    <span class="n">stopped</span> <span class="n">by</span> <span class="n">debugger</span> <span class="n">during</span> <span class="n">the</span> <span class="n">tracing</span>
+</span></span><span class="line"><span class="cl">        <span class="n">W</span>    <span class="n">paging</span> <span class="p">(</span><span class="ow">not</span> <span class="n">valid</span> <span class="n">since</span> <span class="n">the</span> <span class="mf">2.6</span><span class="o">.</span><span class="n">xx</span> <span class="n">kernel</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="n">X</span>    <span class="n">dead</span> <span class="p">(</span><span class="n">should</span> <span class="n">never</span> <span class="n">be</span> <span class="n">seen</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="n">Z</span>    <span class="n">defunct</span> <span class="p">(</span><span class="s2">&#34;zombie&#34;</span><span class="p">)</span> <span class="n">process</span><span class="p">,</span> <span class="n">terminated</span> <span class="n">but</span> <span class="ow">not</span> <span class="n">reaped</span> <span class="n">by</span> <span class="n">its</span> <span class="n">parent</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">For</span> <span class="n">BSD</span> <span class="n">formats</span> <span class="ow">and</span> <span class="n">when</span> <span class="n">the</span> <span class="n">stat</span> <span class="n">keyword</span> <span class="n">is</span> <span class="n">used</span><span class="p">,</span> <span class="n">additional</span> <span class="n">characters</span> <span class="n">may</span> <span class="n">be</span> <span class="n">displayed</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="o">&lt;</span>    <span class="n">high</span><span class="o">-</span><span class="n">priority</span> <span class="p">(</span><span class="ow">not</span> <span class="n">nice</span> <span class="n">to</span> <span class="n">other</span> <span class="n">users</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="n">N</span>    <span class="n">low</span><span class="o">-</span><span class="n">priority</span> <span class="p">(</span><span class="n">nice</span> <span class="n">to</span> <span class="n">other</span> <span class="n">users</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="n">L</span>    <span class="n">has</span> <span class="n">pages</span> <span class="n">locked</span> <span class="n">into</span> <span class="n">memory</span> <span class="p">(</span><span class="k">for</span> <span class="n">real</span><span class="o">-</span><span class="n">time</span> <span class="ow">and</span> <span class="n">custom</span> <span class="n">IO</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="n">s</span>    <span class="n">is</span> <span class="n">a</span> <span class="n">session</span> <span class="n">leader</span>
+</span></span><span class="line"><span class="cl">        <span class="n">l</span>    <span class="n">is</span> <span class="n">multi</span><span class="o">-</span><span class="n">threaded</span> <span class="p">(</span><span class="n">using</span> <span class="n">CLONE_THREAD</span><span class="p">,</span> <span class="n">like</span> <span class="n">NPTL</span> <span class="n">pthreads</span> <span class="k">do</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="o">+</span>    <span class="n">is</span> <span class="ow">in</span> <span class="n">the</span> <span class="n">foreground</span> <span class="n">process</span> <span class="n">group</span>
+</span></span></code></pre></div><h3 id="22查看进程的命令">2.2查看进程的命令
+</h3><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl"><span class="c1"># ps -eo stat | grep ^[RD] | wc -l</span>
+</span></span><span class="line"><span class="cl"><span class="m">1</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># ps -eo pid,time,cmd,stat|more</span>
+</span></span><span class="line"><span class="cl">   PID     TIME CMD                         STAT
+</span></span><span class="line"><span class="cl">     <span class="m">1</span> 00:00:12 /usr/lib/systemd/systemd -- Ss
+</span></span><span class="line"><span class="cl">     <span class="m">2</span> 00:00:00 <span class="o">[</span>kthreadd<span class="o">]</span>                  S
+</span></span><span class="line"><span class="cl">     <span class="m">4</span> 00:00:00 <span class="o">[</span>kworker/0:0H<span class="o">]</span>              S&lt;
+</span></span><span class="line"><span class="cl"><span class="c1"># ps -eLF | wc -l</span>
+</span></span><span class="line"><span class="cl"><span class="m">455</span>
+</span></span><span class="line"><span class="cl"><span class="c1">#  ps axms | wc -l</span>
+</span></span><span class="line"><span class="cl"><span class="m">649</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># pstree</span>
+</span></span><span class="line"><span class="cl">systemd-+-ModemManager---2*<span class="o">[{</span>ModemManager<span class="o">}]</span>
+</span></span><span class="line"><span class="cl">        <span class="p">|</span>-NetworkManager---2*<span class="o">[{</span>NetworkManager<span class="o">}]</span>
+</span></span><span class="line"><span class="cl">......
+</span></span><span class="line"><span class="cl">        <span class="p">|</span>-containerd-shim-+-start.sh-+-crond
+</span></span><span class="line"><span class="cl">        <span class="p">|</span>                 <span class="p">|</span>          <span class="sb">`</span>-sudo---rsyslogd---6*<span class="o">[{</span>rsyslogd<span class="o">}]</span>
+</span></span><span class="line"><span class="cl">        <span class="p">|</span>                 <span class="sb">`</span>-10*<span class="o">[{</span>containerd-shim<span class="o">}]</span>
+</span></span><span class="line"><span class="cl">        <span class="p">|</span>-containerd-shim-+-redis-server---4*<span class="o">[{</span>redis-server<span class="o">}]</span>
+</span></span><span class="line"><span class="cl">        <span class="p">|</span>                 <span class="sb">`</span>-11*<span class="o">[{</span>containerd-shim<span class="o">}]</span>
+</span></span><span class="line"><span class="cl">......
+</span></span><span class="line"><span class="cl"><span class="c1"># ps -ef --forest </span>
+</span></span><span class="line"><span class="cl">root       <span class="m">2996</span>      <span class="m">1</span>  <span class="m">0</span> 02:36 ?        00:01:38 /usr/bin/dockerd -H fd:// --containerd<span class="o">=</span>/run/containerd/containerd.sock
+</span></span><span class="line"><span class="cl">root      <span class="m">12768</span>   <span class="m">2996</span>  <span class="m">0</span> 07:38 ?        00:00:00  <span class="se">\_</span> /usr/bin/docker-proxy -proto tcp -host-ip 127.0.0.1 -host-port <span class="m">1514</span> -container-ip 172.18.0.2 -container-port <span class="m">10514</span>
+</span></span><span class="line"><span class="cl">root      <span class="m">13384</span>   <span class="m">2996</span>  <span class="m">0</span> 07:38 ?        00:00:00  <span class="se">\_</span> /usr/bin/docker-proxy -proto tcp -host-ip 0.0.0.0 -host-port <span class="m">80</span> -container-ip 172.18.0.10 -container-port <span class="m">8080</span>
+</span></span><span class="line"><span class="cl">root      <span class="m">13391</span>   <span class="m">2996</span>  <span class="m">0</span> 07:38 ?        00:00:00  <span class="se">\_</span> /usr/bin/docker-proxy -proto tcp -host-ip :: -host-port <span class="m">80</span> -container-ip 172.18.0.10 -container-port <span class="m">8080</span>
+</span></span><span class="line"><span class="cl">gdm        <span class="m">4126</span>      <span class="m">1</span>  <span class="m">0</span> 02:36 ?        00:00:00 dbus-launch --exit-with-session /usr/libexec/gnome-session-binary --autostart /usr/share/gdm/greeter/autostart
+</span></span><span class="line"><span class="cl">......
+</span></span></code></pre></div><h3 id="23cat-procloadavg">2.3cat /proc/loadavg
+</h3><p>这个文件有五个值</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl"><span class="c1"># cat  /proc/loadavg</span>
+</span></span><span class="line"><span class="cl">0.03 0.02 0.05 1/212 <span class="m">11932</span>
+</span></span></code></pre></div><p>第一个到第三个是1、5、15分钟的load average<br>
+第四个值是一个分数，分子是正在运行的进程数，分母是进程总数。分母可以通过以下命令得出：</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl"><span class="c1"># ps -eo stat | grep ^[RD] | wc -l</span>
+</span></span></code></pre></div><p>第五个值是最后进行的进程ID号</p>
+<h3 id="24查询进程数量相关命令">2.4查询进程数量相关命令
+</h3><p>查询处于(R)可执行状态的进程数</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl"><span class="c1"># ps -eo stat|grep -e &#34;R&#34; | wc -l</span>
+</span></span></code></pre></div><p>查询处于(D)不可中断睡眠状态的进程数</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl"><span class="c1"># ps -eo stat|grep -e &#34;D&#34; | wc -l</span>
+</span></span></code></pre></div><p>查询处于(R)可执行状态和(D)不可中断睡眠状态的进程数</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl"><span class="c1"># ps -eo stat | grep ^[RD] | wc -l</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># ps -eo stat|grep -e &#34;R&#34; -e &#34;D&#34;  | wc -l</span>
+</span></span></code></pre></div><h2 id="3cpu相关内容">3.CPU相关内容
+</h2><h3 id="31proccpuinfo解释">3.1/proc/cpuinfo解释
+</h3><p>processor : 逻辑CPU的编号，从0开始排序<br>
+vendor_id : CPU制造商<br>
+cpu family : CPU产品系列代号<br>
+physical id: 单个物理CPU编号，每个id值代表一个唯一的物理CPU<br>
+cpu cores : 单个物理CPU中封装的内核数<br>
+siblings : CPU核能处理的线程数。如果开启了超线程，则 siblings=2*cpu cores；没开启中则 siblings=cpu cores。CPU支持超线程技术，这意味着每个CPU核心可以同时处理多个线程。例如，如果有一个双核心处理器，并且每个核心都支持超线程，则siblings将显示4，即每个核心可以同时处理两个线程。<br>
+core id : 单个内核在其所处CPU中的编号，这个编号不一定连续<br>
+cpu MHz : CPU的实际使用主频<br>
+flags : 当前cpu支持的功能</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl"><span class="c1"># cat /proc/cpuinfo</span>
+</span></span><span class="line"><span class="cl">processor       : <span class="m">0</span>
+</span></span><span class="line"><span class="cl">vendor_id       : GenuineIntel
+</span></span><span class="line"><span class="cl">cpu family      : <span class="m">6</span>
+</span></span><span class="line"><span class="cl">......
+</span></span><span class="line"><span class="cl">cpu MHz         : 2499.998
+</span></span><span class="line"><span class="cl">cache size      : <span class="m">36608</span> KB
+</span></span><span class="line"><span class="cl">physical id     : <span class="m">0</span>
+</span></span><span class="line"><span class="cl">siblings        : <span class="m">2</span>
+</span></span><span class="line"><span class="cl">core id         : <span class="m">0</span>
+</span></span><span class="line"><span class="cl">cpu cores       : <span class="m">1</span>
+</span></span></code></pre></div><p>计算方法:<br>
+物理CPU：physical id：物理cpu数量，不重复的 physical id 有几个就有多少个物理CPU。<br>
+核心数量：cpu cores：单个CPU里核心的数量。</p>
+<p>逻辑CPU数=物理CPU个数×每颗核数     　　 #没开启超线程技术<br>
+逻辑CPU数=物理CPU个数×每颗核数 * 2  　  #开启了超线程技术</p>
+<h3 id="32查询cpu相关命令">3.2查询CPU相关命令
+</h3><p>一般情况下，使用processor的数量就可以，如果开了启线程，可以考虑再乘以2<br>
+CPU数量=物理CPU个数 * 每个物理CPU的核心数 * 2(如果开启了超线程)<br>
+查询物理CPU个数：</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl"><span class="c1"># cat  /proc/cpuinfo | grep &#34;physical id&#34; | sort | uniq</span>
+</span></span></code></pre></div><p>查询物理CPU核心数：</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl"><span class="c1"># cat /proc/cpuinfo | grep &#34;cpu cores&#34; | uniq</span>
+</span></span></code></pre></div><p>查询CPU总数量：</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl"><span class="c1"># cat /proc/cpuinfo | grep &#34;processor&#34; | wc -l</span>
+</span></span></code></pre></div><p>查询是否启用超线程技术：     //两者值相等则没开启超线程。</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl"><span class="c1"># cat /proc/cpuinfo | grep -e &#34;cpu cores&#34;  -e &#34;siblings&#34; | sort | uniq</span>
+</span></span></code></pre></div><h2 id="4load-average的演变">4.load average的演变
+</h2><h3 id="41最开始的load-averages1973年08月10日">4.1最开始的Load Averages&ndash;1973年08月10日
+</h3><p>在1973年08月10日的TENEX Load Averages for July 1973中 <a class="link" href="https://datatracker.ietf.org/doc/html/rfc546"  target="_blank" rel="noopener"
+    >https://datatracker.ietf.org/doc/html/rfc546</a><br>
+Load Averages这个值是处于R的状态的进程数在1、5、15分钟内的平均值。<br>
+这是使用LISP语言编写的，所以就不贴代码了。<br>
+The TENEX load average is a measure of CPU demand.  The load average is an average of the number of runable processes over a given time period.  For example, an ourly load average of 10 would mean that (for a single CPU system) at any time during that hour one could expect to see 1 process running and 9 others ready to run (i.e., not blocked for I/O) waiting for the CPU.</p>
+<h3 id="42linux在096a版本第一次引入这个功能1992年05月22日">4.2Linux在0.96.a版本第一次引入这个功能&ndash;1992年05月22日
+</h3><p>Linux在0.96.a版本中，修改了/kernel/sched.c文件，第一次引入这个功能，当时使用的是update_avg函数。<br>
+可以看出，当时统计处于R和D状态的进程数，使用的是指数移动平均算法。这和下文今天的Load Averages实现所使用的也是没什么太大区别。<br>
+/kernel/sched.c<br>
+344行：</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="cp">#define	FSHIFT	11
+</span></span></span><span class="line"><span class="cl"><span class="cp">#define	FSCALE	(1&lt;&lt;FSHIFT)
+</span></span></span><span class="line"><span class="cl"><span class="cm">/*
+</span></span></span><span class="line"><span class="cl"><span class="cm"> * Constants for averages over 1, 5, and 15 minutes
+</span></span></span><span class="line"><span class="cl"><span class="cm"> * when sampling at 5 second intervals.
+</span></span></span><span class="line"><span class="cl"><span class="cm"> */</span>
+</span></span><span class="line"><span class="cl"><span class="k">static</span> <span class="kt">unsigned</span> <span class="kt">long</span> <span class="n">cexp</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="mi">1884</span><span class="p">,</span>	<span class="cm">/* 0.9200444146293232 * FSCALE,	 exp(-1/12) */</span>
+</span></span><span class="line"><span class="cl">	<span class="mi">2014</span><span class="p">,</span>	<span class="cm">/* 0.9834714538216174 * FSCALE,	 exp(-1/60) */</span>
+</span></span><span class="line"><span class="cl">	<span class="mi">2037</span><span class="p">,</span>	<span class="cm">/* 0.9944598480048967 * FSCALE,	 exp(-1/180) */</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span><span class="line"><span class="cl"><span class="kt">unsigned</span> <span class="kt">long</span> <span class="n">averunnable</span><span class="p">[</span><span class="mi">3</span><span class="p">];</span>	<span class="cm">/* fixed point numbers */</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="kt">void</span> <span class="nf">update_avg</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    	<span class="kt">int</span> <span class="n">i</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">	<span class="k">struct</span> <span class="n">task_struct</span> <span class="o">**</span><span class="n">p</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="k">for</span><span class="p">(</span><span class="n">p</span> <span class="o">=</span> <span class="o">&amp;</span><span class="n">LAST_TASK</span><span class="p">;</span> <span class="n">p</span> <span class="o">&gt;</span> <span class="o">&amp;</span><span class="n">FIRST_TASK</span><span class="p">;</span> <span class="o">--</span><span class="n">p</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">		<span class="k">if</span> <span class="p">(</span><span class="o">*</span><span class="n">p</span> <span class="o">&amp;&amp;</span> <span class="p">((</span><span class="o">*</span><span class="n">p</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">state</span> <span class="o">==</span> <span class="n">TASK_RUNNING</span> <span class="o">||</span> 
+</span></span><span class="line"><span class="cl">			   <span class="p">(</span><span class="o">*</span><span class="n">p</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">state</span> <span class="o">==</span> <span class="n">TASK_UNINTERRUPTIBLE</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">			<span class="o">++</span><span class="n">n</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">	
+</span></span><span class="line"><span class="cl">	<span class="k">for</span> <span class="p">(</span><span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="mi">3</span><span class="p">;</span> <span class="o">++</span><span class="n">i</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">		<span class="n">averunnable</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">cexp</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="n">averunnable</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+</span>
+</span></span><span class="line"><span class="cl">			<span class="n">n</span> <span class="o">*</span> <span class="n">FSCALE</span> <span class="o">*</span> <span class="p">(</span><span class="n">FSCALE</span> <span class="o">-</span> <span class="n">cexp</span><span class="p">[</span><span class="n">i</span><span class="p">]))</span> <span class="o">&gt;&gt;</span> <span class="n">FSHIFT</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><h3 id="43linux在09913版本修改为只统计处于r状态的进程数1993年09月20日">4.3Linux在0.99.13版本修改为只统计处于R状态的进程数&ndash;1993年09月20日
+</h3><p>在0.99.13版本中，因为GNU的关系，修改了这个函数及其实现。<br>
+/kernel/sched.c<br>
+362行：</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="cm">/*
+</span></span></span><span class="line"><span class="cl"><span class="cm"> * Hmm.. Changed this, as the GNU make sources (load.c) seems to
+</span></span></span><span class="line"><span class="cl"><span class="cm"> * imply that avenrun[] is the standard name for this kind of thing.
+</span></span></span><span class="line"><span class="cl"><span class="cm"> * Nothing else seems to be standardized: the fractional size etc
+</span></span></span><span class="line"><span class="cl"><span class="cm"> * all seem to differ on different machines.
+</span></span></span><span class="line"><span class="cl"><span class="cm"> */</span>
+</span></span><span class="line"><span class="cl"><span class="kt">unsigned</span> <span class="kt">long</span> <span class="n">avenrun</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span> <span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span> <span class="p">};</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="cm">/*
+</span></span></span><span class="line"><span class="cl"><span class="cm"> * Nr of active tasks - counted in fixed-point numbers
+</span></span></span><span class="line"><span class="cl"><span class="cm"> */</span>
+</span></span><span class="line"><span class="cl"><span class="k">static</span> <span class="kt">unsigned</span> <span class="kt">long</span> <span class="nf">count_active_tasks</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="k">struct</span> <span class="n">task_struct</span> <span class="o">**</span><span class="n">p</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">	<span class="kt">unsigned</span> <span class="kt">long</span> <span class="n">nr</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="k">for</span><span class="p">(</span><span class="n">p</span> <span class="o">=</span> <span class="o">&amp;</span><span class="n">LAST_TASK</span><span class="p">;</span> <span class="n">p</span> <span class="o">&gt;</span> <span class="o">&amp;</span><span class="n">FIRST_TASK</span><span class="p">;</span> <span class="o">--</span><span class="n">p</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">		<span class="k">if</span> <span class="p">(</span><span class="o">*</span><span class="n">p</span> <span class="o">&amp;&amp;</span> <span class="p">(</span><span class="o">*</span><span class="n">p</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">state</span> <span class="o">==</span> <span class="n">TASK_RUNNING</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">			<span class="n">nr</span> <span class="o">+=</span> <span class="n">FIXED_1</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">	<span class="k">return</span> <span class="n">nr</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">static</span> <span class="kr">inline</span> <span class="kt">void</span> <span class="nf">calc_load</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="kt">unsigned</span> <span class="kt">long</span> <span class="n">active_tasks</span><span class="p">;</span> <span class="cm">/* fixed-point */</span>
+</span></span><span class="line"><span class="cl">	<span class="k">static</span> <span class="kt">int</span> <span class="n">count</span> <span class="o">=</span> <span class="n">LOAD_FREQ</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="p">(</span><span class="n">count</span><span class="o">--</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">	<span class="n">count</span> <span class="o">=</span> <span class="n">LOAD_FREQ</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">	<span class="n">active_tasks</span> <span class="o">=</span> <span class="nf">count_active_tasks</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">	<span class="nf">CALC_LOAD</span><span class="p">(</span><span class="n">avenrun</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">EXP_1</span><span class="p">,</span> <span class="n">active_tasks</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">	<span class="nf">CALC_LOAD</span><span class="p">(</span><span class="n">avenrun</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">EXP_5</span><span class="p">,</span> <span class="n">active_tasks</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">	<span class="nf">CALC_LOAD</span><span class="p">(</span><span class="n">avenrun</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">EXP_15</span><span class="p">,</span> <span class="n">active_tasks</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>/kernel/sched.h里面的相关代码片段</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="cp">#define CALC_LOAD(load,exp,n) \
+</span></span></span><span class="line"><span class="cl"><span class="cp">	load *= exp; \
+</span></span></span><span class="line"><span class="cl"><span class="cp">	load += n*(FIXED_1-exp); \
+</span></span></span><span class="line"><span class="cl"><span class="cp">	load &gt;&gt;= FSHIFT;
+</span></span></span></code></pre></div><h3 id="44linux在09914版本将状态处于d的进程数也纳入统计1993年10月29日">4.4Linux在0.99.14版本将状态处于D的进程数也纳入统计&ndash;1993年10月29日
+</h3><p>在0.99.14版本中，在1993年10月29日，Matthias认为只统计处于R状态的进程数量，没有真实反应系统的负载，所以应该将处于D状态的进程也纳入统计。<br>
+例如将系统的一块SSD磁盘换成一块7.2k转的机械盘，那么系统相对之前会变的很慢，这是因为很多进程会处于D状态，等待I/O(磁盘I/O、FileSystems I/O、网络I/O[网络文件系统]等)，那么只统计处于R的进程数，就没有真实反应系统的负载&ndash;因为系统的确变慢了！所以应该将处于D状态的进程也纳入统计，并提交了代码。<br>
+/kernel/sched.c<br>
+418行：</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="k">static</span> <span class="kt">unsigned</span> <span class="kt">long</span> <span class="nf">count_active_tasks</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">struct</span> <span class="n">task_struct</span> <span class="o">**</span><span class="n">p</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="kt">unsigned</span> <span class="kt">long</span> <span class="n">nr</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="k">for</span><span class="p">(</span><span class="n">p</span> <span class="o">=</span> <span class="o">&amp;</span><span class="n">LAST_TASK</span><span class="p">;</span> <span class="n">p</span> <span class="o">&gt;</span> <span class="o">&amp;</span><span class="n">FIRST_TASK</span><span class="p">;</span> <span class="o">--</span><span class="n">p</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">                <span class="k">if</span> <span class="p">(</span><span class="o">*</span><span class="n">p</span> <span class="o">&amp;&amp;</span> <span class="p">((</span><span class="o">*</span><span class="n">p</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">state</span> <span class="o">==</span> <span class="n">TASK_RUNNING</span> <span class="o">||</span>
+</span></span><span class="line"><span class="cl">                           <span class="p">(</span><span class="o">*</span><span class="n">p</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">state</span> <span class="o">==</span> <span class="n">TASK_UNINTERRUPTIBLE</span> <span class="o">||</span>
+</span></span><span class="line"><span class="cl">                           <span class="p">(</span><span class="o">*</span><span class="n">p</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">state</span> <span class="o">==</span> <span class="n">TASK_SWAPPING</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">                        <span class="n">nr</span> <span class="o">+=</span> <span class="n">FIXED_1</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">nr</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">static</span> <span class="kr">inline</span> <span class="kt">void</span> <span class="nf">calc_load</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="kt">unsigned</span> <span class="kt">long</span> <span class="n">active_tasks</span><span class="p">;</span> <span class="cm">/* fixed-point */</span>
+</span></span><span class="line"><span class="cl">        <span class="k">static</span> <span class="kt">int</span> <span class="n">count</span> <span class="o">=</span> <span class="n">LOAD_FREQ</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="p">(</span><span class="n">count</span><span class="o">--</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">                <span class="k">return</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="n">count</span> <span class="o">=</span> <span class="n">LOAD_FREQ</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="n">active_tasks</span> <span class="o">=</span> <span class="nf">count_active_tasks</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">        <span class="nf">CALC_LOAD</span><span class="p">(</span><span class="n">avenrun</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">EXP_1</span><span class="p">,</span> <span class="n">active_tasks</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="nf">CALC_LOAD</span><span class="p">(</span><span class="n">avenrun</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">EXP_5</span><span class="p">,</span> <span class="n">active_tasks</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="nf">CALC_LOAD</span><span class="p">(</span><span class="n">avenrun</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">EXP_15</span><span class="p">,</span> <span class="n">active_tasks</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>也就是将原来只统计处于RUNNING状态的进程数，变为统计处于RUNNING、UNINTERRUPTIBLE、TASK_SWAPPING这三种状态的进程数量</p>
+<p>From: Matthias Urlichs <a class="link" href="mailto:urlichs@smurf.sub.org" >urlichs@smurf.sub.org</a><br>
+Subject: Load average broken ?<br>
+Date: Fri, 29 Oct 1993 11:37:23 +0200</p>
+<p>The kernel only counts &ldquo;runnable&rdquo; processes when computing the load average. I don&rsquo;t like that; the problem is that processes which are swapping or waiting on &ldquo;fast&rdquo;, i.e. noninterruptible, I/O, also consume resources.<br>
+It seems somewhat nonintuitive that the load average goes down when you replace your fast swap disk with a slow swap disk&hellip;<br>
+Anyway, the following patch seems to make the load average much more consistent WRT the subjective speed of the system. And, most important, the load is still zero when nobody is doing anything. ;-)</p>
+<h3 id="45最新版linux中的load-averages一个很sb的指标但是听说它很重要2022年02月22日">4.5最新版Linux中的Load Averages：一个很SB的指标，但是听说它很重要&ndash;2022年02月22日
+</h3><p>注意看loadavg.c文件中的第一段注释：这是计算全局负载的指标，它其实很SB，但是不知道为什么他们都认为这玩意很重要。<br>
+在算法实现上，因为现在的机器可能拥有大量的CPU，那么计算起来又费时又费力，从而改为了分布式和异步方式。<br>
+同时也说</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="c1">// SPDX-License-Identifier: GPL-2.0
+</span></span></span><span class="line"><span class="cl"><span class="cm">/*
+</span></span></span><span class="line"><span class="cl"><span class="cm">* kernel/sched/loadavg.c
+</span></span></span><span class="line"><span class="cl"><span class="cm">*
+</span></span></span><span class="line"><span class="cl"><span class="cm">* This file contains the magic bits required to compute the global loadavg
+</span></span></span><span class="line"><span class="cl"><span class="cm">* figure. Its a silly number but people think its important. We go through
+</span></span></span><span class="line"><span class="cl"><span class="cm">* great pains to make it work on big machines and tickless kernels.
+</span></span></span><span class="line"><span class="cl"><span class="cm">*/</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="cm">/*
+</span></span></span><span class="line"><span class="cl"><span class="cm">* Global load-average calculations
+</span></span></span><span class="line"><span class="cl"><span class="cm">*
+</span></span></span><span class="line"><span class="cl"><span class="cm">* We take a distributed and async approach to calculating the global load-avg
+</span></span></span><span class="line"><span class="cl"><span class="cm">* in order to minimize overhead.
+</span></span></span><span class="line"><span class="cl"><span class="cm">*
+</span></span></span><span class="line"><span class="cl"><span class="cm">* The global load average is an exponentially decaying average of nr_running +
+</span></span></span><span class="line"><span class="cl"><span class="cm">* nr_uninterruptible.
+</span></span></span><span class="line"><span class="cl"><span class="cm">*
+</span></span></span><span class="line"><span class="cl"><span class="cm">* Once every LOAD_FREQ:
+</span></span></span><span class="line"><span class="cl"><span class="cm">*
+</span></span></span><span class="line"><span class="cl"><span class="cm">*   nr_active = 0;
+</span></span></span><span class="line"><span class="cl"><span class="cm">*   for_each_possible_cpu(cpu)
+</span></span></span><span class="line"><span class="cl"><span class="cm">*	nr_active += cpu_of(cpu)-&gt;nr_running + cpu_of(cpu)-&gt;nr_uninterruptible;
+</span></span></span><span class="line"><span class="cl"><span class="cm">*
+</span></span></span><span class="line"><span class="cl"><span class="cm">*   avenrun[n] = avenrun[0] * exp_n + nr_active * (1 - exp_n)
+</span></span></span><span class="line"><span class="cl"><span class="cm">*
+</span></span></span><span class="line"><span class="cl"><span class="cm">* Due to a number of reasons the above turns in the mess below:
+</span></span></span><span class="line"><span class="cl"><span class="cm">*
+</span></span></span><span class="line"><span class="cl"><span class="cm">*  - for_each_possible_cpu() is prohibitively expensive on machines with
+</span></span></span><span class="line"><span class="cl"><span class="cm">*    serious number of CPUs, therefore we need to take a distributed approach
+</span></span></span><span class="line"><span class="cl"><span class="cm">*    to calculating nr_active.
+</span></span></span><span class="line"><span class="cl"><span class="cm">*
+</span></span></span><span class="line"><span class="cl"><span class="cm">*        \Sum_i x_i(t) = \Sum_i x_i(t) - x_i(t_0) | x_i(t_0) := 0
+</span></span></span><span class="line"><span class="cl"><span class="cm">*                      = \Sum_i { \Sum_j=1 x_i(t_j) - x_i(t_j-1) }
+</span></span></span><span class="line"><span class="cl"><span class="cm">*
+</span></span></span><span class="line"><span class="cl"><span class="cm">*/</span>
+</span></span></code></pre></div><h2 id="5测试">5.测试
+</h2><p>写一段程序，生成N个一直占用CPU资源的进程，运行T秒，然后观察load-average的值。<br>
+可以看到运行1分钟以上后，load-average的第一个值和进程数接近。</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl"><span class="c1"># gcc -o forkpid forkpid.c</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># ./forkpid 500 180</span>
+</span></span></code></pre></div><p>在这里运行了500个进程，运行了180秒，可以看到top中的load-average的第一值为482。</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl"><span class="c1"># top</span>
+</span></span><span class="line"><span class="cl">top - 09:32:50 up 13:16,  <span class="m">5</span> users,  load average: 482.00, 283.16, 128.12
+</span></span><span class="line"><span class="cl">Tasks: <span class="m">771</span> total, <span class="m">501</span> running, <span class="m">270</span> sleeping,   <span class="m">0</span> stopped,   <span class="m">0</span> zombie
+</span></span><span class="line"><span class="cl">%Cpu<span class="o">(</span>s<span class="o">)</span>: 99.5 us,  0.2 sy,  0.0 ni,  0.0 id,  0.0 wa,  0.0 hi,  0.3 si,  0.0 st
+</span></span><span class="line"><span class="cl">KiB Mem :  <span class="m">7989848</span> total,  <span class="m">5106864</span> free,  <span class="m">1373304</span> used,  <span class="m">1509680</span> buff/cache
+</span></span><span class="line"><span class="cl">KiB Swap:        <span class="m">0</span> total,        <span class="m">0</span> free,        <span class="m">0</span> used.  <span class="m">6162116</span> avail Mem 
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">   PID USER      PR  NI    VIRT    RES    SHR S  %CPU %MEM     TIME+ COMMAND    
+</span></span><span class="line"><span class="cl"> <span class="m">26609</span> root      <span class="m">20</span>   <span class="m">0</span>    <span class="m">4216</span>     <span class="m">88</span>      <span class="m">0</span> R   1.5  0.0   0:01.55 forkpid    
+</span></span><span class="line"><span class="cl"> <span class="m">26503</span> root      <span class="m">20</span>   <span class="m">0</span>    <span class="m">4216</span>     <span class="m">88</span>      <span class="m">0</span> R   1.2  0.0   0:01.56 forkpid    
+</span></span><span class="line"><span class="cl"> <span class="m">26505</span> root      <span class="m">20</span>   <span class="m">0</span>    <span class="m">4216</span>     <span class="m">88</span>      <span class="m">0</span> R   1.2  0.0   0:01.55 forkpid    
+</span></span><span class="line"><span class="cl"> <span class="m">26506</span> root      <span class="m">20</span>   <span class="m">0</span>    <span class="m">4216</span>     <span class="m">88</span>      <span class="m">0</span> R   1.2  0.0   0:01.55 forkpid    
+</span></span><span class="line"><span class="cl"> <span class="m">26507</span> root      <span class="m">20</span>   <span class="m">0</span>    <span class="m">4216</span>     <span class="m">88</span>      <span class="m">0</span> R   1.2  0.0   0:01.55 forkpid    
+</span></span><span class="line"><span class="cl"> <span class="m">26509</span> root      <span class="m">20</span>   <span class="m">0</span>    <span class="m">4216</span>     <span class="m">88</span>      <span class="m">0</span> R   1.2  0.0   0:01.55 forkpid    
+</span></span></code></pre></div><h3 id="51测试代码">5.1测试代码
+</h3><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="cp"># cat forkpid.c
+</span></span></span><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&lt;stdio.h&gt;</span><span class="cp">
+</span></span></span><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&lt;stdlib.h&gt;</span><span class="cp">
+</span></span></span><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&lt;unistd.h&gt;</span><span class="cp">
+</span></span></span><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&lt;sys/wait.h&gt;</span><span class="cp">
+</span></span></span><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&lt;signal.h&gt;</span><span class="cp">
+</span></span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">//define a signal handler function to terminate child processes
+</span></span></span><span class="line"><span class="cl"><span class="kt">void</span> <span class="nf">handler</span><span class="p">(</span><span class="kt">int</span> <span class="n">sig</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">printf</span><span class="p">(</span><span class="s">&#34;Child process %d received signal %d</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">,</span> <span class="nf">getpid</span><span class="p">(),</span> <span class="n">sig</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">exit</span><span class="p">(</span><span class="mi">0</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="kt">int</span> <span class="nf">main</span><span class="p">(</span><span class="kt">int</span> <span class="n">argc</span><span class="p">,</span> <span class="kt">char</span> <span class="o">*</span><span class="n">argv</span><span class="p">[])</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span><span class="p">(</span><span class="n">argc</span> <span class="o">!=</span> <span class="mi">3</span><span class="p">)</span> <span class="c1">//check the number of arguments
+</span></span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="nf">printf</span><span class="p">(</span><span class="s">&#34;Usage: %s &lt;number of processes&gt; &lt;time to run&gt;</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">,</span> <span class="n">argv</span><span class="p">[</span><span class="mi">0</span><span class="p">]);</span> <span class="c1">//print the usage
+</span></span></span><span class="line"><span class="cl">        <span class="nf">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="kt">int</span> <span class="n">N</span> <span class="o">=</span> <span class="nf">atoi</span><span class="p">(</span><span class="n">argv</span><span class="p">[</span><span class="mi">1</span><span class="p">]);</span> <span class="c1">//convert the first argument to an integer, indicating the number of processes to create
+</span></span></span><span class="line"><span class="cl">    <span class="kt">int</span> <span class="n">T</span> <span class="o">=</span> <span class="nf">atoi</span><span class="p">(</span><span class="n">argv</span><span class="p">[</span><span class="mi">2</span><span class="p">]);</span> <span class="c1">//convert the second argument to an integer, indicating the time to run
+</span></span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="kt">int</span> <span class="n">i</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">for</span><span class="p">(</span><span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">N</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span> <span class="c1">//loop N times
+</span></span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="kt">pid_t</span> <span class="n">pid</span><span class="p">;</span> <span class="c1">//define a process ID variable
+</span></span></span><span class="line"><span class="cl">        <span class="n">pid</span> <span class="o">=</span> <span class="nf">fork</span><span class="p">();</span> <span class="c1">//create a child process
+</span></span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="k">if</span><span class="p">(</span><span class="n">pid</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="c1">//if creation fails, return -1
+</span></span></span><span class="line"><span class="cl">        <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="nf">perror</span><span class="p">(</span><span class="s">&#34;fork error&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">            <span class="nf">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="k">else</span> <span class="k">if</span><span class="p">(</span><span class="n">pid</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> <span class="c1">//if creation succeeds, return 0, indicating child process
+</span></span></span><span class="line"><span class="cl">        <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="nf">printf</span><span class="p">(</span><span class="s">&#34;This is child process %d, pid is %d</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">,</span> <span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span> <span class="nf">getpid</span><span class="p">());</span> <span class="c1">//print the child process number and ID
+</span></span></span><span class="line"><span class="cl">            <span class="nf">signal</span><span class="p">(</span><span class="n">SIGALRM</span><span class="p">,</span> <span class="n">handler</span><span class="p">);</span> <span class="c1">//register the signal handler function to receive the SIGALRM signal sent by the parent process
+</span></span></span><span class="line"><span class="cl">            <span class="k">for</span><span class="p">(;;)</span> <span class="c1">//execute an infinite loop to consume CPU resources
+</span></span></span><span class="line"><span class="cl">            <span class="p">{</span>
+</span></span><span class="line"><span class="cl">                <span class="kt">double</span> <span class="n">x</span> <span class="o">=</span> <span class="mf">3.14159</span><span class="p">;</span> <span class="c1">//define a double variable
+</span></span></span><span class="line"><span class="cl">                <span class="n">x</span> <span class="o">=</span> <span class="n">x</span> <span class="o">*</span> <span class="n">x</span><span class="p">;</span> <span class="c1">//calculate the square of x
+</span></span></span><span class="line"><span class="cl">            <span class="p">}</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1">//parent process waits for T seconds and then sends SIGALRM signal to all child processes to terminate them
+</span></span></span><span class="line"><span class="cl">    <span class="nf">sleep</span><span class="p">(</span><span class="n">T</span><span class="p">);</span> <span class="c1">//wait for T seconds
+</span></span></span><span class="line"><span class="cl">    <span class="nf">kill</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">SIGALRM</span><span class="p">);</span> <span class="c1">//send SIGALRM signal to all processes in the same process group
+</span></span></span><span class="line"><span class="cl">    <span class="nf">printf</span><span class="p">(</span><span class="s">&#34;Parent process sent signal %d to all child processes</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">,</span> <span class="n">SIGALRM</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">//parent process waits for all child processes to end and gets their return values
+</span></span></span><span class="line"><span class="cl">    
+</span></span><span class="line"><span class="cl">    <span class="kt">int</span> <span class="n">status</span><span class="p">;</span> <span class="c1">//define a status variable
+</span></span></span><span class="line"><span class="cl">    <span class="k">while</span><span class="p">(</span><span class="nf">wait</span><span class="p">(</span><span class="o">&amp;</span><span class="n">status</span><span class="p">)</span> <span class="o">!=</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="c1">//if there are still child processes not finished, continue to wait
+</span></span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="nf">printf</span><span class="p">(</span><span class="s">&#34;Child process exited with status %d</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">,</span> <span class="n">status</span><span class="p">);</span> <span class="c1">//print the exit status of the child process
+</span></span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><h2 id="6相关代码和测试全过程">6.相关代码和测试全过程
+</h2><p><a class="link" href="http://39.105.160.122/2023/04/24/load-average%e6%9f%a5%e5%85%b3%e4%bb%a3%e7%a0%81%e5%92%8c%e6%b5%8b%e8%af%95%e8%bf%87%e7%a8%8b/"  title="Linux中的load average相关代码和测试过程"
+     target="_blank" rel="noopener"
+    >Linux中的load average相关代码和测试过程</a></p>
+
+</section>
+
+
+    <footer class="article-meta article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/linux/">Linux</a>
+        
+            <a href="/tags/load-average/">Load Average</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+<aside>
+    <h2 class="section-title">Related content</h2>
+    <div class="subsection-list">
+        <div class="article-list--tile">
+            
+                
+<article class="">
+    <a href="/posts/linux-load-average-source-code-and-testing-process/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux中的load average相关代码和测试过程</h2>
+        </div>
+    </a>
+</article>
+            
+        </div>
+    </div>
+</aside>
+
+     
+    
+        
+        <div class="disqus-container">
+    
+</div>
+
+<style>
+    .disqus-container {
+        background-color: var(--card-background);
+        border-radius: var(--card-border-radius);
+        box-shadow: var(--shadow-l1);
+        padding: var(--card-padding);
+    }
+</style>
+
+<script>
+    window.addEventListener('onColorSchemeChange', (e) => {
+        if (typeof DISQUS == 'object') {
+            DISQUS.reset({
+                reload: true
+            });
+        }
+    })
+</script>
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+        2026 
+    </section>
+    
+    <section class="powerby">
+        Built with <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> <br />
+        Theme <b><a href="https://github.com/CaiJimmy/hugo-theme-stack" target="_blank" rel="noopener" data-version="4.0.0">Stack</a></b> designed by <a href="https://jimmycai.com" target="_blank" rel="noopener">Jimmy</a>
+    </section>
+</footer>
+
+
+    
+
+
+
+<script type="module">
+    import gallery from '\/ts\/gallery.js';
+
+    const articleContent = document.querySelector('.article-content');
+    const shouldLoad = articleContent && (articleContent.querySelectorAll('figure').length > 0 || articleContent.querySelectorAll('img.gallery-image').length > 0);
+    
+    if (shouldLoad) {
+        gallery(articleContent);
+
+        const PhotoSwipeLightbox = (await import("https:\/\/cdn.jsdelivr.net\/npm\/photoswipe@5.4.4\/dist\/photoswipe-lightbox.esm.min.js")).default;
+        const styleHref = "https:\/\/cdn.jsdelivr.net\/npm\/photoswipe@5.4.4\/dist\/photoswipe.css";
+
+        const styleTag = document.createElement('link');
+        styleTag.rel = 'stylesheet';
+        styleTag.href = styleHref;
+        document.head.appendChild(styleTag);
+
+        const lightbox = new PhotoSwipeLightbox({
+            gallerySelector: '.article-content',
+            childSelector: 'figure a.image-link',
+            pswpModule: () => import("https:\/\/cdn.jsdelivr.net\/npm\/photoswipe@5.4.4\/dist\/photoswipe.esm.min.js")
+        });
+        lightbox.init();
+    }
+</script>
+    
+
+            </main>
+        </div>
+        
+<script type="text/javascript" src="/ts/main.3ee067593935e3e391e923f2aa079d2b8173732410e5e89b88be5ea1545eeff7.js" defer></script>
+
+
+    </body>
+</html>

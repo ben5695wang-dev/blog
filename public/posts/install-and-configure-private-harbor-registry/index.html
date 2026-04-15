@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+    <head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="安装配置私有仓库Harbor 本文记录了在CentOS7.9上安装配置私有仓库Harbor的过程。\n1.版本及安装前提 1.1版本概述 宿主机: Windows 10\n1.2安装前提 硬件\nResource Minimum Recommended CPU 2cpu 4cpu Mem 4GB 8GB Disk 40GB 160GB 软件\nSoftware Version Description Docker engine Version 17.06.0-ce+ or higher Docker Compose docker-compose (v1.18.0+) or docker compose v2 (docker-compose-plugin) Openssl Latest is preferred 网络端口\nPort Protocol Description 443 HTTPS Harbor portal and core API accept HTTPS requests on this port. You can change this port in the configuration file. 443 HTTPS Connections to the Docker Content Trust service for Harbor. Only required if Notary is enabled. You can change this port in the configuration file. 80 HTTP Harbor portal and core API accept HTTP requests on this port. You can change this port in the configuration file. 2.OS环境准备 2.1 关闭防火墙： # hostnamectl set-hostname minikube # systemctl stop firewalld # systemctl disable firewalld 2.2 关闭selinux # sed -i &#39;s/enforcing/disabled/&#39; /etc/selinux/config 2.3 关闭swap 删除swap那一行，或者注释掉\n">
+<title>安装配置私有仓库harbor</title>
+
+
+<link rel="canonical" href="//localhost:1313/posts/install-and-configure-private-harbor-registry/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap">
+
+
+<link rel="stylesheet" href="/scss/style.min.389e156f5e9bb13df5a924cfa99dfb9c39f3e01e68d9e146cd65bdae963be145.css"><meta property='og:title' content="安装配置私有仓库harbor">
+<meta property='og:description' content="安装配置私有仓库Harbor 本文记录了在CentOS7.9上安装配置私有仓库Harbor的过程。\n1.版本及安装前提 1.1版本概述 宿主机: Windows 10\n1.2安装前提 硬件\nResource Minimum Recommended CPU 2cpu 4cpu Mem 4GB 8GB Disk 40GB 160GB 软件\nSoftware Version Description Docker engine Version 17.06.0-ce+ or higher Docker Compose docker-compose (v1.18.0+) or docker compose v2 (docker-compose-plugin) Openssl Latest is preferred 网络端口\nPort Protocol Description 443 HTTPS Harbor portal and core API accept HTTPS requests on this port. You can change this port in the configuration file. 443 HTTPS Connections to the Docker Content Trust service for Harbor. Only required if Notary is enabled. You can change this port in the configuration file. 80 HTTP Harbor portal and core API accept HTTP requests on this port. You can change this port in the configuration file. 2.OS环境准备 2.1 关闭防火墙： # hostnamectl set-hostname minikube # systemctl stop firewalld # systemctl disable firewalld 2.2 关闭selinux # sed -i &#39;s/enforcing/disabled/&#39; /etc/selinux/config 2.3 关闭swap 删除swap那一行，或者注释掉\n">
+<meta property='og:url' content='//localhost:1313/posts/install-and-configure-private-harbor-registry/'>
+<meta property='og:site_name' content=''>
+<meta property='og:type' content='article'><meta property='article:section' content='Posts' /><meta property='article:tag' content='CentOS' /><meta property='article:tag' content='harbor' /><meta property='article:published_time' content='2023-04-10T18:38:59&#43;08:00'/><meta property='article:modified_time' content='2023-04-10T18:38:59&#43;08:00'/>
+<meta name="twitter:title" content="安装配置私有仓库harbor">
+<meta name="twitter:description" content="安装配置私有仓库Harbor 本文记录了在CentOS7.9上安装配置私有仓库Harbor的过程。\n1.版本及安装前提 1.1版本概述 宿主机: Windows 10\n1.2安装前提 硬件\nResource Minimum Recommended CPU 2cpu 4cpu Mem 4GB 8GB Disk 40GB 160GB 软件\nSoftware Version Description Docker engine Version 17.06.0-ce+ or higher Docker Compose docker-compose (v1.18.0+) or docker compose v2 (docker-compose-plugin) Openssl Latest is preferred 网络端口\nPort Protocol Description 443 HTTPS Harbor portal and core API accept HTTPS requests on this port. You can change this port in the configuration file. 443 HTTPS Connections to the Docker Content Trust service for Harbor. Only required if Notary is enabled. You can change this port in the configuration file. 80 HTTP Harbor portal and core API accept HTTP requests on this port. You can change this port in the configuration file. 2.OS环境准备 2.1 关闭防火墙： # hostnamectl set-hostname minikube # systemctl stop firewalld # systemctl disable firewalld 2.2 关闭selinux # sed -i &#39;s/enforcing/disabled/&#39; /etc/selinux/config 2.3 关闭swap 删除swap那一行，或者注释掉\n">
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="Toggle Menu">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/"></a></h1>
+            <h2 class="site-description"></h2>
+        </div>
+    </header><ol class="menu" id="main-menu">
+        
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>Dark Mode</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            
+            
+            
+            <a href="/categories/%E6%8A%80%E6%9C%AF/" style="background-color: hsl(154, 60%, 84%); color: hsl(154, 60%, 15%);">
+                技术
+            </a>
+        
+            
+            
+            
+            <a href="/categories/centos/" style="background-color: hsl(113, 60%, 84%); color: hsl(113, 60%, 15%);">
+                CentOS
+            </a>
+        
+            
+            
+            
+            <a href="/categories/harbor/" style="background-color: hsl(67, 60%, 84%); color: hsl(67, 60%, 15%);">
+                Harbor
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/posts/install-and-configure-private-harbor-registry/">安装配置私有仓库harbor</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    
+    
+    
+    <footer class="article-meta">
+        
+            <div class="inline-meta">
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                    <time class="article-time--published" datetime='2023-04-10T18:38:59&#43;08:00'>Monday, April 10, 2023</time>
+                
+
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                    <time class="article-time--reading">
+                        4 minutes read
+                    </time>
+                
+            </div>
+        
+
+        
+
+        
+    </footer>
+    
+</div>
+
+</header>
+
+    
+
+    <section class="article-content">
+    
+    
+    <h1 id="安装配置私有仓库harbor">安装配置私有仓库Harbor
+</h1><p>本文记录了在CentOS7.9上安装配置私有仓库Harbor的过程。</p>
+<h2 id="1版本及安装前提">1.版本及安装前提
+</h2><h3 id="11版本概述">1.1版本概述
+</h3><p>宿主机: Windows 10</p>
+<h3 id="12安装前提">1.2安装前提
+</h3><p>硬件</p>
+<div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th style="text-align: left">Resource</th>
+          <th style="text-align: left">Minimum</th>
+          <th style="text-align: left">Recommended</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td style="text-align: left">CPU</td>
+          <td style="text-align: left">2cpu</td>
+          <td style="text-align: left">4cpu</td>
+      </tr>
+      <tr>
+          <td style="text-align: left">Mem</td>
+          <td style="text-align: left">4GB</td>
+          <td style="text-align: left">8GB</td>
+      </tr>
+      <tr>
+          <td style="text-align: left">Disk</td>
+          <td style="text-align: left">40GB</td>
+          <td style="text-align: left">160GB</td>
+      </tr>
+  </tbody>
+</table></div>
+<p>软件</p>
+<div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>Software</th>
+          <th style="text-align: left">Version</th>
+          <th style="text-align: left">Description</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>Docker engine</td>
+          <td style="text-align: left">Version 17.06.0-ce+ or higher</td>
+          <td style="text-align: left"></td>
+      </tr>
+      <tr>
+          <td>Docker Compose</td>
+          <td style="text-align: left">docker-compose (v1.18.0+) or docker compose v2 (docker-compose-plugin)</td>
+          <td style="text-align: left"></td>
+      </tr>
+      <tr>
+          <td>Openssl</td>
+          <td style="text-align: left">Latest is preferred</td>
+          <td style="text-align: left"></td>
+      </tr>
+  </tbody>
+</table></div>
+<p>网络端口</p>
+<div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th style="text-align: left">Port</th>
+          <th style="text-align: left">Protocol</th>
+          <th style="text-align: left">Description</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td style="text-align: left">443</td>
+          <td style="text-align: left">HTTPS</td>
+          <td style="text-align: left">Harbor portal and core API accept HTTPS requests on this port. You can change this port in the configuration file.</td>
+      </tr>
+      <tr>
+          <td style="text-align: left">443</td>
+          <td style="text-align: left">HTTPS</td>
+          <td style="text-align: left">Connections to the Docker Content Trust service for Harbor. Only required if Notary is enabled. You can change this port in the configuration file.</td>
+      </tr>
+      <tr>
+          <td style="text-align: left">80</td>
+          <td style="text-align: left">HTTP</td>
+          <td style="text-align: left">Harbor portal and core API accept HTTP requests on this port. You can change this port in the configuration file.</td>
+      </tr>
+  </tbody>
+</table></div>
+<h2 id="2os环境准备">2.OS环境准备
+</h2><h3 id="21-关闭防火墙">2.1 关闭防火墙：
+</h3><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl"><span class="c1"># hostnamectl set-hostname minikube</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># systemctl stop firewalld</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># systemctl disable firewalld</span>
+</span></span></code></pre></div><h3 id="22-关闭selinux">2.2 关闭selinux
+</h3><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl"><span class="c1"># sed -i &#39;s/enforcing/disabled/&#39; /etc/selinux/config</span>
+</span></span></code></pre></div><h3 id="23-关闭swap">2.3 关闭swap
+</h3><p>删除swap那一行，或者注释掉</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl"><span class="c1"># vim /etc/fstab </span>
+</span></span></code></pre></div><h3 id="24-挂载centos-dvd并作为本地yum源">2.4 挂载centos DVD，并作为本地yum源
+</h3><p>在虚拟机上连接centos DVD</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 /<span class="o">]</span><span class="c1"># cd /</span>
+</span></span><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 /<span class="o">]</span><span class="c1"># mkdir dvd0</span>
+</span></span><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 /<span class="o">]</span><span class="c1"># mount /dev/cdrom /dvd0</span>
+</span></span><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 dvd0<span class="o">]</span><span class="c1"># cd /etc/yum.repos.d/</span>
+</span></span><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 yum.repos.d<span class="o">]</span><span class="c1"># mkdir bak</span>
+</span></span><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 yum.repos.d<span class="o">]</span><span class="c1"># mv ./C* ./bak/</span>
+</span></span><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 yum.repos.d<span class="o">]</span><span class="c1"># vi centos7-local-Base.repo</span>
+</span></span><span class="line"><span class="cl"><span class="o">[</span>ISO<span class="o">]</span>
+</span></span><span class="line"><span class="cl"><span class="nv">name</span><span class="o">=</span>redhat7.9-dvd
+</span></span><span class="line"><span class="cl"><span class="nv">baseurl</span><span class="o">=</span>file:///dvd0/
+</span></span><span class="line"><span class="cl"><span class="nv">gpgcheck</span><span class="o">=</span><span class="m">0</span>
+</span></span><span class="line"><span class="cl"><span class="nv">enabled</span><span class="o">=</span><span class="m">1</span>
+</span></span><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 yum.repos.d<span class="o">]</span><span class="c1"># yum update</span>
+</span></span><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 yum.repos.d<span class="o">]</span><span class="c1"># yum repolist</span>
+</span></span></code></pre></div><h3 id="24-下载需要的软件包做自己的本地yum源">2.4 下载需要的软件包，做自己的本地yum源
+</h3><p>下载需要的软件包</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 yum.repos.d<span class="o">]</span><span class="c1"># cp ./bak/* ./</span>
+</span></span><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 dockce-local-repo<span class="o">]</span><span class="c1"># yum install --downloadonly --downloaddir=/dockce-local-repo docker-ce</span>
+</span></span></code></pre></div><p>制作自己的yum源</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 /<span class="o">]</span><span class="c1"># cd dockce-local-repo/</span>
+</span></span><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 dockce-local-repo<span class="o">]</span><span class="c1"># createrepo .</span>
+</span></span><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 dockce-local-repo<span class="o">]</span><span class="c1"># cd /etc/yum.repos.d/</span>
+</span></span><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 yum.repos.d<span class="o">]</span><span class="c1"># vi dockce-local.repo</span>
+</span></span><span class="line"><span class="cl"><span class="o">[</span>dockce-Base<span class="o">]</span>
+</span></span><span class="line"><span class="cl"><span class="nv">name</span><span class="o">=</span>dockce <span class="nb">local</span> repo
+</span></span><span class="line"><span class="cl"><span class="nv">baseurl</span><span class="o">=</span>file:///dockce-local-repo
+</span></span><span class="line"><span class="cl"><span class="nv">enabled</span><span class="o">=</span><span class="m">1</span>
+</span></span><span class="line"><span class="cl"><span class="nv">gpgcheck</span><span class="o">=</span><span class="m">0</span>
+</span></span><span class="line"><span class="cl"><span class="nv">priority</span><span class="o">=</span><span class="m">1</span>
+</span></span><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 yum.repos.d<span class="o">]</span><span class="c1"># yum update</span>
+</span></span><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 yum.repos.d<span class="o">]</span><span class="c1"># yum repolist</span>
+</span></span></code></pre></div><h2 id="3安装docker">3.安装docker
+</h2><h3 id="31-安装docker">3.1 安装docker
+</h3><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl"><span class="c1"># yum -y install docker-ce</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># systemctl enable docker &amp;&amp; systemctl start docker</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># docker version</span>
+</span></span></code></pre></div><h3 id="32-配置镜像下载加速器">3.2 配置镜像下载加速器
+</h3><p>这里的地址使用的是个人的阿里云的镜像加速器</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl"><span class="c1"># cat &gt; /etc/docker/daemon.json &lt;&lt; EOF</span>
+</span></span><span class="line"><span class="cl"><span class="o">{</span>
+</span></span><span class="line"><span class="cl">  <span class="s2">&#34;registry-mirrors&#34;</span>: <span class="o">[</span><span class="s2">&#34;https://xxx.mirror.aliyuncs.com&#34;</span><span class="o">]</span>
+</span></span><span class="line"><span class="cl"><span class="o">}</span>
+</span></span><span class="line"><span class="cl">EOF
+</span></span><span class="line"><span class="cl"><span class="c1"># systemctl restart docker</span>
+</span></span></code></pre></div><h3 id="33-安装docker-compose">3.3 安装Docker-Compose
+</h3><p>使用场景：用来单机上编排容器(定义如何运行多个容器，使容器能互通)<br>
+docker compose是通过一个.yml/.yaml配置文件完成<br>
+docker compose将所管理的容器分为三层：<br>
+一个project包含多个service，一个service包含多个container<br>
+工程/project  相当于一个目录，这个目录下有唯一的docker-compose.yml、extends文件和变量文件<br>
+注意：如果没有指定project name就把目录名字作为project name<br>
+服务/service  定义容器运行所需要的镜像、各种参数、依赖关系<br>
+容器/container  数据运行的地方，最终运行的就是容器</p>
+<p>从 <a class="link" href="https://github.com/docker/compose/releases"  target="_blank" rel="noopener"
+    >https://github.com/docker/compose/releases</a> 下载对应的包<br>
+然后上传到CentOS上</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 docker-compose-local<span class="o">]</span><span class="c1"># cp ./docker-compose-linux-x86_64  /usr/local/bin/docker-compose</span>
+</span></span><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 docker-compose-local<span class="o">]</span><span class="c1"># chmod +x /usr/local/bin/docker-compose</span>
+</span></span><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 docker-compose-local<span class="o">]</span><span class="c1"># docker-compose version</span>
+</span></span></code></pre></div><h2 id="4安装harbor">4.安装Harbor
+</h2><h3 id="41下载harbor离线安装包">4.1下载Harbor离线安装包
+</h3><p>从 <a class="link" href="https://github.com/goharbor/harbor/releases"  target="_blank" rel="noopener"
+    >https://github.com/goharbor/harbor/releases</a> 下载对应的包<br>
+然后上传到CentOS上</p>
+<h3 id="42配置harbor">4.2配置Harbor
+</h3><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 harbor-local<span class="o">]</span><span class="c1"># tar -zxf ./harbor-offline-installer-v2.8.0-rc2.tgz  -C /usr/local/</span>
+</span></span><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 harbor<span class="o">]</span><span class="c1"># cp harbor.yml.tmpl harbor.yml</span>
+</span></span><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 harbor<span class="o">]</span><span class="c1"># cp harbor.yml.tmpl harbor.yml</span>
+</span></span><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 harbor<span class="o">]</span><span class="c1"># vim harbor.yml</span>
+</span></span><span class="line"><span class="cl">hostname: 192.168.50.160        //Harbor的域名或者IP
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># http related config</span>
+</span></span><span class="line"><span class="cl">http:       
+</span></span><span class="line"><span class="cl">  <span class="c1"># port for http, default is 80. If https enabled, this port will redirect to https port</span>
+</span></span><span class="line"><span class="cl">  port: <span class="m">80</span>      //HTTP端口
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># https related config</span>
+</span></span><span class="line"><span class="cl"><span class="c1">#https:     //HTTPS相关，如果不对外服务，可以并掉</span>
+</span></span><span class="line"><span class="cl"><span class="c1">#  # https port for harbor, default is 443</span>
+</span></span><span class="line"><span class="cl"><span class="c1">#  port: 443    //如果设置了HTTPS端口，那么HTTP端口会重定向到HTTPS端口中</span>
+</span></span><span class="line"><span class="cl"><span class="c1">#  # The path of cert and key files for nginx</span>
+</span></span><span class="line"><span class="cl"><span class="c1">#  certificate: /your/certificate/path      //证书路径</span>
+</span></span><span class="line"><span class="cl"><span class="c1">#  private_key: /your/private/key/path      //证书路径</span>
+</span></span><span class="line"><span class="cl">......
+</span></span><span class="line"><span class="cl"><span class="c1"># The initial password of Harbor admin</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># It only works in first time to install harbor</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># Remember Change the admin password from UI after launching Harbor.</span>
+</span></span><span class="line"><span class="cl">harbor_admin_password: Harbor12345      //admin账户密码
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Harbor DB configuration</span>
+</span></span><span class="line"><span class="cl">database:
+</span></span><span class="line"><span class="cl">  <span class="c1"># The password for the root user of Harbor DB. Change this before any production use.</span>
+</span></span><span class="line"><span class="cl">  password: root123          //数据库密码
+</span></span><span class="line"><span class="cl">......
+</span></span><span class="line"><span class="cl"><span class="c1"># The default data volume</span>
+</span></span><span class="line"><span class="cl">data_volume: /Harbordata                //数据库存放地址
+</span></span></code></pre></div><h3 id="43-安装harbor">4.3 安装Harbor
+</h3><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 harbor<span class="o">]</span><span class="c1"># ./install.sh</span>
+</span></span></code></pre></div><p>安装完成后，就可以通过配置文件中的IP/域名访问，用户名为admin，密码在配置文件中。</p>
+<h3 id="44查看harbor">4.4查看Harbor
+</h3><p>要在/usr/local/harbor这个目录下，因为这个目录下有docker-compose.yaml这个文件，不然会报以下错误<br>
+docker-compose启动容器报“no configuration file provided: not found”，配置文件未找到。其中最常见的原因是没有在有docker-compose.yaml的路径下执行该命令。</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 harbor<span class="o">]</span><span class="c1"># cd /usr/local/harbor</span>
+</span></span><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 harbor<span class="o">]</span><span class="c1"># docker-compose ps </span>
+</span></span></code></pre></div><h3 id="45重启harbor">4.5重启Harbor
+</h3><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 harbor<span class="o">]</span><span class="c1"># cd /usr/local/harbor</span>
+</span></span><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 harbor<span class="o">]</span><span class="c1"># docker-compose stop</span>
+</span></span><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 harbor<span class="o">]</span><span class="c1"># docker-compose up -d</span>
+</span></span><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 harbor<span class="o">]</span><span class="c1"># docker-compose ps | wc</span>
+</span></span><span class="line"><span class="cl">     <span class="m">10</span>     <span class="m">127</span>    <span class="m">1655</span>
+</span></span></code></pre></div><h2 id="5使用harbor">5.使用Harbor
+</h2><p>管理员用户拥有创建仓库和删除镜像的权限<br>
+普通用户拥有上传镜像和拉取镜像权限 无法删除仓库和镜像</p>
+<h3 id="51创建项目">5.1创建项目
+</h3><p>公开项目：所有用户都快要访问，通常存放公共的镜像，默认有一个library公开项目<br>
+私有项目：只有授权用户才可以访问，通换成那个存放项目本身的镜像<br>
+然后可以创建用户，并分配项目权限,之后上传镜像可以登录创建的用户<br>
+创建一个公开项目 k8s</p>
+<h3 id="52创建用户">5.2创建用户
+</h3><p>使用admin登录用，创建一个账户</p>
+<h3 id="53在项目中添加用户">5.3在项目中添加用户
+</h3><p>在创建的公开项目中，选择成员，添加成员，把新创建的用户k8s添加进去</p>
+<h3 id="54配置docker">5.4配置docker
+</h3><p>找到docker 的 daemon.json 配置文件，CentOS 7 的路径：/etc/docker/daemon.json（系统版本不同所处位置不同，其他版本的请自行百度），如果路径下没有这个文件自己创建即可。然后再配置文件里加上：<br>
+这里要添加不安全的网址和端口号，不会login的时候会直接去找443端口而报错。</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 docker<span class="o">]</span><span class="c1"># vi /etc/docker/daemon.json</span>
+</span></span><span class="line"><span class="cl"><span class="o">{</span>
+</span></span><span class="line"><span class="cl">  <span class="s2">&#34;insecure-registries&#34;</span>: <span class="o">[</span><span class="s2">&#34;192.168.50.160:80&#34;</span><span class="o">]</span>
+</span></span><span class="line"><span class="cl"><span class="o">}</span>
+</span></span><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 docker<span class="o">]</span><span class="c1"># systemctl daemon-reload</span>
+</span></span><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 docker<span class="o">]</span><span class="c1"># systemctl restart docker.service</span>
+</span></span></code></pre></div><h3 id="55手动下载image">5.5手动下载image
+</h3><p>1.在可以联网的机器上面下载需要的镜像，传到可以联到Harbor的机器上面<br>
+grep image calico.yaml //查看都需要拉取哪些镜像，然后</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 ~<span class="o">]</span><span class="c1"># docker pull docker.io/calico/cni:v3.22.1 </span>
+</span></span><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 harbor<span class="o">]</span><span class="c1"># cd /</span>
+</span></span><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 /<span class="o">]</span><span class="c1"># mkdir docker-local-images</span>
+</span></span><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 /<span class="o">]</span><span class="c1"># cd docker-local-images/</span>
+</span></span><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 docker-local-images<span class="o">]</span><span class="c1"># docker save calico/cni:v3.22.1 &gt; cni.tar </span>
+</span></span><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 docker-local-images<span class="o">]</span><span class="c1"># scp /docker-local-images/cni.tar root@k8s-node1:/docker-local-images/cni.tar</span>
+</span></span></code></pre></div><p>2.在可以联到Harbor的机器上面<br>
+tag里面要添加端口号，不然push的时候会直接去找443端口，从而报错。<br>
+login的时候要指明端口号，不然lgoin的时候会直接去找443端口，从而报错。</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 harbor<span class="o">]</span><span class="c1"># docker load &lt; /docker-local-images/cni.tar	//从别的机器上拷贝过来，然后导入tar文件</span>
+</span></span><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 harbor<span class="o">]</span><span class="c1"># docker tag calico/cni:v3.22.1 192.168.50.160:80/k8s/cni:v3.22.1</span>
+</span></span><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 harbor<span class="o">]</span><span class="c1"># docker login 192.168.50.160:80   //使用上面创建的k8s用户名登录</span>
+</span></span><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 harbor<span class="o">]</span><span class="c1"># docker push 192.168.50.160:80/k8s/cni:v3.22.1</span>
+</span></span></code></pre></div><h2 id="6下载k8s安装需要的内容">6.下载k8s安装需要的内容
+</h2><h3 id="61下载kubelet-kubeadm-kubectl">6.1下载kubelet kubeadm kubectl
+</h3><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 kubelet<span class="o">]</span><span class="c1"># yum install --downloadonly --downloaddir=/dockce-local-repo/kubelet kubelet kubeadm kubectl</span>
+</span></span><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 yum.repos.d<span class="o">]</span><span class="c1"># cd /dockce-local-repo/</span>
+</span></span><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 dockce-local-repo<span class="o">]</span><span class="c1"># createrepo .</span>
+</span></span><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 yum.repos.d<span class="o">]</span><span class="c1"># yum install -y kubelet kubeadm kubectl</span>
+</span></span></code></pre></div><h3 id="62下载kubadm-init需要的docker-image">6.2下载kubadm init需要的docker image
+</h3><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 yum.repos.d<span class="o">]</span><span class="c1"># kubeadm config images list</span>
+</span></span><span class="line"><span class="cl">W0416 00:36:46.142279  <span class="m">106359</span> images.go:80<span class="o">]</span> could not find officially supported version of etcd <span class="k">for</span> Kubernetes v1.27.1, falling back to the nearest etcd version <span class="o">(</span>3.5.7-0<span class="o">)</span>
+</span></span><span class="line"><span class="cl">registry.k8s.io/kube-apiserver:v1.27.1
+</span></span><span class="line"><span class="cl">registry.k8s.io/kube-controller-manager:v1.27.1
+</span></span><span class="line"><span class="cl">registry.k8s.io/kube-scheduler:v1.27.1
+</span></span><span class="line"><span class="cl">registry.k8s.io/kube-proxy:v1.27.1
+</span></span><span class="line"><span class="cl">registry.k8s.io/pause:3.9
+</span></span><span class="line"><span class="cl">registry.k8s.io/etcd:3.5.7-0
+</span></span><span class="line"><span class="cl">registry.k8s.io/coredns/coredns:v1.10.1
+</span></span><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 yum.repos.d<span class="o">]</span><span class="c1"># docker pull registry.cn-hangzhou.aliyuncs.com/google_containers/kube-apiserver:v1.27.1</span>
+</span></span><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 yum.repos.d<span class="o">]</span><span class="c1"># docker pull registry.cn-hangzhou.aliyuncs.com/google_containers/kube-controller-manager:v1.27.1</span>
+</span></span><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 yum.repos.d<span class="o">]</span><span class="c1"># docker pull registry.cn-hangzhou.aliyuncs.com/google_containers/kube-scheduler:v1.27.1</span>
+</span></span><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 yum.repos.d<span class="o">]</span><span class="c1"># docker pull registry.cn-hangzhou.aliyuncs.com/google_containers/kube-proxy:v1.27.1</span>
+</span></span><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 yum.repos.d<span class="o">]</span><span class="c1"># docker pull registry.cn-hangzhou.aliyuncs.com/google_containers/pause:3.9</span>
+</span></span><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 yum.repos.d<span class="o">]</span><span class="c1"># docker pull registry.cn-hangzhou.aliyuncs.com/google_containers/etcd:3.5.7-0</span>
+</span></span><span class="line"><span class="cl"><span class="o">[</span>root@harbor1 yum.repos.d<span class="o">]</span><span class="c1"># docker pull registry.cn-hangzhou.aliyuncs.com/google_containers/coredns:v1.10.1</span>
+</span></span></code></pre></div><p>将registry.k8s.io替换为registry.cn-hangzhou.aliyuncs.com/google_containers，然后拉取<br>
+registry.k8s.io/coredns/要替换为egistry.cn-hangzhou.aliyuncs.com/google_containers，没有/coredns/,然后拉取</p>
+
+</section>
+
+
+    <footer class="article-meta article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/centos/">CentOS</a>
+        
+            <a href="/tags/harbor/">Harbor</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+<aside>
+    <h2 class="section-title">Related content</h2>
+    <div class="subsection-list">
+        <div class="article-list--tile">
+            
+                
+<article class="">
+    <a href="/posts/install-k8s-on-centos79/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">CentOS7.9安装k8s集群</h2>
+        </div>
+    </a>
+</article>
+            
+        </div>
+    </div>
+</aside>
+
+     
+    
+        
+        <div class="disqus-container">
+    
+</div>
+
+<style>
+    .disqus-container {
+        background-color: var(--card-background);
+        border-radius: var(--card-border-radius);
+        box-shadow: var(--shadow-l1);
+        padding: var(--card-padding);
+    }
+</style>
+
+<script>
+    window.addEventListener('onColorSchemeChange', (e) => {
+        if (typeof DISQUS == 'object') {
+            DISQUS.reset({
+                reload: true
+            });
+        }
+    })
+</script>
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+        2026 
+    </section>
+    
+    <section class="powerby">
+        Built with <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> <br />
+        Theme <b><a href="https://github.com/CaiJimmy/hugo-theme-stack" target="_blank" rel="noopener" data-version="4.0.0">Stack</a></b> designed by <a href="https://jimmycai.com" target="_blank" rel="noopener">Jimmy</a>
+    </section>
+</footer>
+
+
+    
+
+
+
+<script type="module">
+    import gallery from '\/ts\/gallery.js';
+
+    const articleContent = document.querySelector('.article-content');
+    const shouldLoad = articleContent && (articleContent.querySelectorAll('figure').length > 0 || articleContent.querySelectorAll('img.gallery-image').length > 0);
+    
+    if (shouldLoad) {
+        gallery(articleContent);
+
+        const PhotoSwipeLightbox = (await import("https:\/\/cdn.jsdelivr.net\/npm\/photoswipe@5.4.4\/dist\/photoswipe-lightbox.esm.min.js")).default;
+        const styleHref = "https:\/\/cdn.jsdelivr.net\/npm\/photoswipe@5.4.4\/dist\/photoswipe.css";
+
+        const styleTag = document.createElement('link');
+        styleTag.rel = 'stylesheet';
+        styleTag.href = styleHref;
+        document.head.appendChild(styleTag);
+
+        const lightbox = new PhotoSwipeLightbox({
+            gallerySelector: '.article-content',
+            childSelector: 'figure a.image-link',
+            pswpModule: () => import("https:\/\/cdn.jsdelivr.net\/npm\/photoswipe@5.4.4\/dist\/photoswipe.esm.min.js")
+        });
+        lightbox.init();
+    }
+</script>
+    
+
+            </main>
+        </div>
+        
+<script type="text/javascript" src="/ts/main.3ee067593935e3e391e923f2aa079d2b8173732410e5e89b88be5ea1545eeff7.js" defer></script>
+
+
+    </body>
+</html>

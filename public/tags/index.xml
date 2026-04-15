@@ -5,29 +5,245 @@
         <description>Recent content in Tags on </description>
         <generator>Hugo -- gohugo.io</generator>
         <language>en</language>
-        <lastBuildDate>Fri, 03 Apr 2026 21:28:02 +0800</lastBuildDate><atom:link href="//localhost:1313/tags/index.xml" rel="self" type="application/rss+xml" /><item>
-            <title>Github-Pages</title>
-            <link>//localhost:1313/tags/github-pages/</link>
-            <pubDate>Fri, 03 Apr 2026 21:28:02 +0800</pubDate>
-            <guid>//localhost:1313/tags/github-pages/</guid>
+        <lastBuildDate>Mon, 10 Feb 2025 20:02:29 +0800</lastBuildDate><atom:link href="//localhost:1313/tags/index.xml" rel="self" type="application/rss+xml" /><item>
+            <title>Linux</title>
+            <link>//localhost:1313/tags/linux/</link>
+            <pubDate>Mon, 10 Feb 2025 20:02:29 +0800</pubDate>
+            <guid>//localhost:1313/tags/linux/</guid>
             <description></description>
         </item><item>
-            <title>Hugo</title>
-            <link>//localhost:1313/tags/hugo/</link>
-            <pubDate>Fri, 03 Apr 2026 21:28:02 +0800</pubDate>
-            <guid>//localhost:1313/tags/hugo/</guid>
+            <title>Whinux OS</title>
+            <link>//localhost:1313/tags/whinux-os/</link>
+            <pubDate>Mon, 10 Feb 2025 20:02:29 +0800</pubDate>
+            <guid>//localhost:1313/tags/whinux-os/</guid>
             <description></description>
         </item><item>
-            <title>Markdown</title>
-            <link>//localhost:1313/tags/markdown/</link>
-            <pubDate>Fri, 03 Apr 2026 21:28:02 +0800</pubDate>
-            <guid>//localhost:1313/tags/markdown/</guid>
+            <title>操作系统</title>
+            <link>//localhost:1313/tags/%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/</link>
+            <pubDate>Mon, 10 Feb 2025 20:02:29 +0800</pubDate>
+            <guid>//localhost:1313/tags/%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/</guid>
             <description></description>
         </item><item>
-            <title>静态站点</title>
-            <link>//localhost:1313/tags/%E9%9D%99%E6%80%81%E7%AB%99%E7%82%B9/</link>
-            <pubDate>Fri, 03 Apr 2026 21:28:02 +0800</pubDate>
-            <guid>//localhost:1313/tags/%E9%9D%99%E6%80%81%E7%AB%99%E7%82%B9/</guid>
+            <title>Storage</title>
+            <link>//localhost:1313/tags/storage/</link>
+            <pubDate>Mon, 21 Oct 2024 20:02:29 +0800</pubDate>
+            <guid>//localhost:1313/tags/storage/</guid>
+            <description></description>
+        </item><item>
+            <title>存储snap分析与可视化展示工具</title>
+            <link>//localhost:1313/tags/%E5%AD%98%E5%82%A8snap%E5%88%86%E6%9E%90%E4%B8%8E%E5%8F%AF%E8%A7%86%E5%8C%96%E5%B1%95%E7%A4%BA%E5%B7%A5%E5%85%B7/</link>
+            <pubDate>Mon, 21 Oct 2024 20:02:29 +0800</pubDate>
+            <guid>//localhost:1313/tags/%E5%AD%98%E5%82%A8snap%E5%88%86%E6%9E%90%E4%B8%8E%E5%8F%AF%E8%A7%86%E5%8C%96%E5%B1%95%E7%A4%BA%E5%B7%A5%E5%85%B7/</guid>
+            <description></description>
+        </item><item>
+            <title>AIX</title>
+            <link>//localhost:1313/tags/aix/</link>
+            <pubDate>Wed, 16 Oct 2024 20:02:29 +0800</pubDate>
+            <guid>//localhost:1313/tags/aix/</guid>
+            <description></description>
+        </item><item>
+            <title>AIX Snap分析与可视化展示工具</title>
+            <link>//localhost:1313/tags/aix-snap%E5%88%86%E6%9E%90%E4%B8%8E%E5%8F%AF%E8%A7%86%E5%8C%96%E5%B1%95%E7%A4%BA%E5%B7%A5%E5%85%B7/</link>
+            <pubDate>Wed, 16 Oct 2024 20:02:29 +0800</pubDate>
+            <guid>//localhost:1313/tags/aix-snap%E5%88%86%E6%9E%90%E4%B8%8E%E5%8F%AF%E8%A7%86%E5%8C%96%E5%B1%95%E7%A4%BA%E5%B7%A5%E5%85%B7/</guid>
+            <description></description>
+        </item><item>
+            <title>Linux诊断和故障排除</title>
+            <link>//localhost:1313/tags/linux%E8%AF%8A%E6%96%AD%E5%92%8C%E6%95%85%E9%9A%9C%E6%8E%92%E9%99%A4/</link>
+            <pubDate>Sat, 13 Jul 2024 20:02:29 +0800</pubDate>
+            <guid>//localhost:1313/tags/linux%E8%AF%8A%E6%96%AD%E5%92%8C%E6%95%85%E9%9A%9C%E6%8E%92%E9%99%A4/</guid>
+            <description></description>
+        </item><item>
+            <title>官方支持数据sos_report及其分析可视化软件</title>
+            <link>//localhost:1313/tags/%E5%AE%98%E6%96%B9%E6%94%AF%E6%8C%81%E6%95%B0%E6%8D%AEsos_report%E5%8F%8A%E5%85%B6%E5%88%86%E6%9E%90%E5%8F%AF%E8%A7%86%E5%8C%96%E8%BD%AF%E4%BB%B6/</link>
+            <pubDate>Sat, 13 Jul 2024 20:02:29 +0800</pubDate>
+            <guid>//localhost:1313/tags/%E5%AE%98%E6%96%B9%E6%94%AF%E6%8C%81%E6%95%B0%E6%8D%AEsos_report%E5%8F%8A%E5%85%B6%E5%88%86%E6%9E%90%E5%8F%AF%E8%A7%86%E5%8C%96%E8%BD%AF%E4%BB%B6/</guid>
+            <description></description>
+        </item><item>
+            <title>日志持久化和转发</title>
+            <link>//localhost:1313/tags/%E6%97%A5%E5%BF%97%E6%8C%81%E4%B9%85%E5%8C%96%E5%92%8C%E8%BD%AC%E5%8F%91/</link>
+            <pubDate>Fri, 12 Jul 2024 20:02:29 +0800</pubDate>
+            <guid>//localhost:1313/tags/%E6%97%A5%E5%BF%97%E6%8C%81%E4%B9%85%E5%8C%96%E5%92%8C%E8%BD%AC%E5%8F%91/</guid>
+            <description></description>
+        </item><item>
+            <title>Dump设置和分析</title>
+            <link>//localhost:1313/tags/dump%E8%AE%BE%E7%BD%AE%E5%92%8C%E5%88%86%E6%9E%90/</link>
+            <pubDate>Thu, 11 Jul 2024 20:02:29 +0800</pubDate>
+            <guid>//localhost:1313/tags/dump%E8%AE%BE%E7%BD%AE%E5%92%8C%E5%88%86%E6%9E%90/</guid>
+            <description></description>
+        </item><item>
+            <title>硬件问题日志</title>
+            <link>//localhost:1313/tags/%E7%A1%AC%E4%BB%B6%E9%97%AE%E9%A2%98%E6%97%A5%E5%BF%97/</link>
+            <pubDate>Wed, 10 Jul 2024 20:02:29 +0800</pubDate>
+            <guid>//localhost:1313/tags/%E7%A1%AC%E4%BB%B6%E9%97%AE%E9%A2%98%E6%97%A5%E5%BF%97/</guid>
+            <description></description>
+        </item><item>
+            <title>身份验证和授权问题诊断</title>
+            <link>//localhost:1313/tags/%E8%BA%AB%E4%BB%BD%E9%AA%8C%E8%AF%81%E5%92%8C%E6%8E%88%E6%9D%83%E9%97%AE%E9%A2%98%E8%AF%8A%E6%96%AD/</link>
+            <pubDate>Tue, 09 Jul 2024 20:02:29 +0800</pubDate>
+            <guid>//localhost:1313/tags/%E8%BA%AB%E4%BB%BD%E9%AA%8C%E8%AF%81%E5%92%8C%E6%8E%88%E6%9D%83%E9%97%AE%E9%A2%98%E8%AF%8A%E6%96%AD/</guid>
+            <description></description>
+        </item><item>
+            <title>网络问题诊断</title>
+            <link>//localhost:1313/tags/%E7%BD%91%E7%BB%9C%E9%97%AE%E9%A2%98%E8%AF%8A%E6%96%AD/</link>
+            <pubDate>Mon, 08 Jul 2024 20:02:29 +0800</pubDate>
+            <guid>//localhost:1313/tags/%E7%BD%91%E7%BB%9C%E9%97%AE%E9%A2%98%E8%AF%8A%E6%96%AD/</guid>
+            <description></description>
+        </item><item>
+            <title>应用程序诊断</title>
+            <link>//localhost:1313/tags/%E5%BA%94%E7%94%A8%E7%A8%8B%E5%BA%8F%E8%AF%8A%E6%96%AD/</link>
+            <pubDate>Sun, 07 Jul 2024 20:02:29 +0800</pubDate>
+            <guid>//localhost:1313/tags/%E5%BA%94%E7%94%A8%E7%A8%8B%E5%BA%8F%E8%AF%8A%E6%96%AD/</guid>
+            <description></description>
+        </item><item>
+            <title>修复软件包及管理器</title>
+            <link>//localhost:1313/tags/%E4%BF%AE%E5%A4%8D%E8%BD%AF%E4%BB%B6%E5%8C%85%E5%8F%8A%E7%AE%A1%E7%90%86%E5%99%A8/</link>
+            <pubDate>Sat, 06 Jul 2024 20:02:29 +0800</pubDate>
+            <guid>//localhost:1313/tags/%E4%BF%AE%E5%A4%8D%E8%BD%AF%E4%BB%B6%E5%8C%85%E5%8F%8A%E7%AE%A1%E7%90%86%E5%99%A8/</guid>
+            <description></description>
+        </item><item>
+            <title>修复iSCSI</title>
+            <link>//localhost:1313/tags/%E4%BF%AE%E5%A4%8Discsi/</link>
+            <pubDate>Fri, 05 Jul 2024 20:02:29 +0800</pubDate>
+            <guid>//localhost:1313/tags/%E4%BF%AE%E5%A4%8Discsi/</guid>
+            <description></description>
+        </item><item>
+            <title>修复文件系统</title>
+            <link>//localhost:1313/tags/%E4%BF%AE%E5%A4%8D%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9F/</link>
+            <pubDate>Thu, 04 Jul 2024 20:02:29 +0800</pubDate>
+            <guid>//localhost:1313/tags/%E4%BF%AE%E5%A4%8D%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9F/</guid>
+            <description></description>
+        </item><item>
+            <title>重置root密码</title>
+            <link>//localhost:1313/tags/%E9%87%8D%E7%BD%AEroot%E5%AF%86%E7%A0%81/</link>
+            <pubDate>Wed, 03 Jul 2024 20:02:29 +0800</pubDate>
+            <guid>//localhost:1313/tags/%E9%87%8D%E7%BD%AEroot%E5%AF%86%E7%A0%81/</guid>
+            <description></description>
+        </item><item>
+            <title>修复内核服务</title>
+            <link>//localhost:1313/tags/%E4%BF%AE%E5%A4%8D%E5%86%85%E6%A0%B8%E6%9C%8D%E5%8A%A1/</link>
+            <pubDate>Mon, 01 Jul 2024 20:02:29 +0800</pubDate>
+            <guid>//localhost:1313/tags/%E4%BF%AE%E5%A4%8D%E5%86%85%E6%A0%B8%E6%9C%8D%E5%8A%A1/</guid>
+            <description></description>
+        </item><item>
+            <title>Linux诊断和故障排除简介</title>
+            <link>//localhost:1313/tags/linux%E8%AF%8A%E6%96%AD%E5%92%8C%E6%95%85%E9%9A%9C%E6%8E%92%E9%99%A4%E7%AE%80%E4%BB%8B/</link>
+            <pubDate>Sun, 30 Jun 2024 20:02:29 +0800</pubDate>
+            <guid>//localhost:1313/tags/linux%E8%AF%8A%E6%96%AD%E5%92%8C%E6%95%85%E9%9A%9C%E6%8E%92%E9%99%A4%E7%AE%80%E4%BB%8B/</guid>
+            <description></description>
+        </item><item>
+            <title>修复启动分区</title>
+            <link>//localhost:1313/tags/%E4%BF%AE%E5%A4%8D%E5%90%AF%E5%8A%A8%E5%88%86%E5%8C%BA/</link>
+            <pubDate>Sun, 30 Jun 2024 20:02:29 +0800</pubDate>
+            <guid>//localhost:1313/tags/%E4%BF%AE%E5%A4%8D%E5%90%AF%E5%8A%A8%E5%88%86%E5%8C%BA/</guid>
+            <description></description>
+        </item><item>
+            <title>Linux性能诊断和调优系列</title>
+            <link>//localhost:1313/tags/linux%E6%80%A7%E8%83%BD%E8%AF%8A%E6%96%AD%E5%92%8C%E8%B0%83%E4%BC%98%E7%B3%BB%E5%88%97/</link>
+            <pubDate>Mon, 24 Jun 2024 19:31:55 +0800</pubDate>
+            <guid>//localhost:1313/tags/linux%E6%80%A7%E8%83%BD%E8%AF%8A%E6%96%AD%E5%92%8C%E8%B0%83%E4%BC%98%E7%B3%BB%E5%88%97/</guid>
+            <description></description>
+        </item><item>
+            <title>大内存型应用性能调优案例</title>
+            <link>//localhost:1313/tags/%E5%A4%A7%E5%86%85%E5%AD%98%E5%9E%8B%E5%BA%94%E7%94%A8%E6%80%A7%E8%83%BD%E8%B0%83%E4%BC%98%E6%A1%88%E4%BE%8B/</link>
+            <pubDate>Mon, 24 Jun 2024 19:31:55 +0800</pubDate>
+            <guid>//localhost:1313/tags/%E5%A4%A7%E5%86%85%E5%AD%98%E5%9E%8B%E5%BA%94%E7%94%A8%E6%80%A7%E8%83%BD%E8%B0%83%E4%BC%98%E6%A1%88%E4%BE%8B/</guid>
+            <description></description>
+        </item><item>
+            <title>存储密集型应用性能调优案例</title>
+            <link>//localhost:1313/tags/%E5%AD%98%E5%82%A8%E5%AF%86%E9%9B%86%E5%9E%8B%E5%BA%94%E7%94%A8%E6%80%A7%E8%83%BD%E8%B0%83%E4%BC%98%E6%A1%88%E4%BE%8B/</link>
+            <pubDate>Fri, 21 Jun 2024 19:31:55 +0800</pubDate>
+            <guid>//localhost:1313/tags/%E5%AD%98%E5%82%A8%E5%AF%86%E9%9B%86%E5%9E%8B%E5%BA%94%E7%94%A8%E6%80%A7%E8%83%BD%E8%B0%83%E4%BC%98%E6%A1%88%E4%BE%8B/</guid>
+            <description></description>
+        </item><item>
+            <title>计算密集型应用性能调优案例</title>
+            <link>//localhost:1313/tags/%E8%AE%A1%E7%AE%97%E5%AF%86%E9%9B%86%E5%9E%8B%E5%BA%94%E7%94%A8%E6%80%A7%E8%83%BD%E8%B0%83%E4%BC%98%E6%A1%88%E4%BE%8B/</link>
+            <pubDate>Thu, 20 Jun 2024 19:31:55 +0800</pubDate>
+            <guid>//localhost:1313/tags/%E8%AE%A1%E7%AE%97%E5%AF%86%E9%9B%86%E5%9E%8B%E5%BA%94%E7%94%A8%E6%80%A7%E8%83%BD%E8%B0%83%E4%BC%98%E6%A1%88%E4%BE%8B/</guid>
+            <description></description>
+        </item><item>
+            <title>虚拟环境性能调优案例</title>
+            <link>//localhost:1313/tags/%E8%99%9A%E6%8B%9F%E7%8E%AF%E5%A2%83%E6%80%A7%E8%83%BD%E8%B0%83%E4%BC%98%E6%A1%88%E4%BE%8B/</link>
+            <pubDate>Wed, 19 Jun 2024 19:31:55 +0800</pubDate>
+            <guid>//localhost:1313/tags/%E8%99%9A%E6%8B%9F%E7%8E%AF%E5%A2%83%E6%80%A7%E8%83%BD%E8%B0%83%E4%BC%98%E6%A1%88%E4%BE%8B/</guid>
+            <description></description>
+        </item><item>
+            <title>虚拟机及容器</title>
+            <link>//localhost:1313/tags/%E8%99%9A%E6%8B%9F%E6%9C%BA%E5%8F%8A%E5%AE%B9%E5%99%A8/</link>
+            <pubDate>Tue, 18 Jun 2024 19:31:55 +0800</pubDate>
+            <guid>//localhost:1313/tags/%E8%99%9A%E6%8B%9F%E6%9C%BA%E5%8F%8A%E5%AE%B9%E5%99%A8/</guid>
+            <description></description>
+        </item><item>
+            <title>Network</title>
+            <link>//localhost:1313/tags/network/</link>
+            <pubDate>Mon, 17 Jun 2024 19:31:55 +0800</pubDate>
+            <guid>//localhost:1313/tags/network/</guid>
+            <description></description>
+        </item><item>
+            <title>Filesystem</title>
+            <link>//localhost:1313/tags/filesystem/</link>
+            <pubDate>Fri, 14 Jun 2024 19:31:55 +0800</pubDate>
+            <guid>//localhost:1313/tags/filesystem/</guid>
+            <description></description>
+        </item><item>
+            <title>Disk</title>
+            <link>//localhost:1313/tags/disk/</link>
+            <pubDate>Thu, 13 Jun 2024 18:38:59 +0800</pubDate>
+            <guid>//localhost:1313/tags/disk/</guid>
+            <description></description>
+        </item><item>
+            <title>Memory</title>
+            <link>//localhost:1313/tags/memory/</link>
+            <pubDate>Tue, 11 Jun 2024 18:38:59 +0800</pubDate>
+            <guid>//localhost:1313/tags/memory/</guid>
+            <description></description>
+        </item><item>
+            <title>Cpu</title>
+            <link>//localhost:1313/tags/cpu/</link>
+            <pubDate>Thu, 06 Jun 2024 18:38:59 +0800</pubDate>
+            <guid>//localhost:1313/tags/cpu/</guid>
+            <description></description>
+        </item><item>
+            <title>CentOS</title>
+            <link>//localhost:1313/tags/centos/</link>
+            <pubDate>Tue, 11 Apr 2023 18:59:37 +0800</pubDate>
+            <guid>//localhost:1313/tags/centos/</guid>
+            <description></description>
+        </item><item>
+            <title>K8s</title>
+            <link>//localhost:1313/tags/k8s/</link>
+            <pubDate>Tue, 11 Apr 2023 18:59:37 +0800</pubDate>
+            <guid>//localhost:1313/tags/k8s/</guid>
+            <description></description>
+        </item><item>
+            <title>Minikube</title>
+            <link>//localhost:1313/tags/minikube/</link>
+            <pubDate>Tue, 11 Apr 2023 18:59:37 +0800</pubDate>
+            <guid>//localhost:1313/tags/minikube/</guid>
+            <description></description>
+        </item><item>
+            <title>Harbor</title>
+            <link>//localhost:1313/tags/harbor/</link>
+            <pubDate>Mon, 10 Apr 2023 18:38:59 +0800</pubDate>
+            <guid>//localhost:1313/tags/harbor/</guid>
+            <description></description>
+        </item><item>
+            <title>Log</title>
+            <link>//localhost:1313/tags/log/</link>
+            <pubDate>Sun, 02 Apr 2023 19:31:55 +0800</pubDate>
+            <guid>//localhost:1313/tags/log/</guid>
+            <description></description>
+        </item><item>
+            <title>Yum</title>
+            <link>//localhost:1313/tags/yum/</link>
+            <pubDate>Sun, 02 Apr 2023 19:31:55 +0800</pubDate>
+            <guid>//localhost:1313/tags/yum/</guid>
+            <description></description>
+        </item><item>
+            <title>Load Average</title>
+            <link>//localhost:1313/tags/load-average/</link>
+            <pubDate>Thu, 16 Feb 2023 19:31:55 +0800</pubDate>
+            <guid>//localhost:1313/tags/load-average/</guid>
             <description></description>
         </item></channel>
 </rss>

@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+    <head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="Linux性能诊断和调优系列(九)&ndash;计算密集型应用性能调优案例\n目录 计算密集型常见的场景\n操作系统级CPU参数\n使用slice配置应用程序CPU资源\n将应用程序绑定在指定CPU上\n为应用程序指定CPU调度策略和优先级\n计算密集型常见的场景 数据仓库：进行ETL（提取、转换、加载）操作和数据聚合。\n大规模事务处理：处理大量并发事务的系统，如在线交易平台。\n实时分析：需要快速响应时间的实时数据处理和分析。\n财务建模和风险分析：进行复杂的金融算法和风险评估。\n科学计算和模拟，例如气候模型、物理模拟、分子动力学模拟等；\n高性能计算（HPC）、人工智能和深度学习等。\n所以对于计算密集型应用案例，我们重点关注CPU方面的调整。\n操作系统级CPU参数 对于计算密集型应用案例，常见的CPU方面的调整参数如下：\nenergy_performance_preference，这个参数用于设置系统整体的能耗与性能，建议使用performance，也就是最佳性能优先。\nenergy_perf_bias，这个参数用于设置CPU的能耗与性能，建议使用performance，也就是最佳性能优先。\ngovernor，这个参数用于设置CPU频率策略，建议使用performance，从而让CPU尽可能保持在最高频率。\nmin_perf_pct，这个参数用于设置CPU性能的最小百分比，100表示CPU始终以最大性能运行。\n使用slice配置应用程序CPU资源 如果在一个操作系统中，有多个应用程序，为了保证某个应用程序或限制某个应用程序，可以使用slice来配置应用程序可以使用的CPU资源。\n在slice文件中，常见设置如下：\nCPUQuota，这个参数用于设置可以使用的CPU资源百分比，例如40%。\nCPUAccounting，这个参数用于设置开启对CPU使用的监控。\n将应用程序绑定在指定CPU上 CPUAffinity，这个参数用于设置CPU的关联性，可以将应用程序绑定在指定CPU上，例如CPUAffinity=0，从而增加应用程序的性能。\n为应用程序指定CPU调度策略和优先级 CPUSchedulingPolicy，这个参数用于设置CPU调度策略，常用的有NORMAL，BATCH和IDLE。\nCPUScchedulingPriority，这个参数用于设置进程优先级，范围从 -20到+19，值越小优先级越高。\n更多内容请参见本系列其他文章 &laquo;Linux性能诊断和调优系列(一)&ndash;30秒3条命令诊断Linux性能瓶颈&raquo;\n&laquo;Linux性能诊断和调优系列(二)&ndash;CPU篇&raquo;\n&laquo;Linux性能诊断和调优系列(三)&ndash;内存篇&raquo;\n&laquo;Linux性能诊断和调优系列(四)&ndash;硬盘篇&raquo;\n&laquo;Linux性能诊断和调优系列(五)&ndash;文件系统篇&raquo;\n&laquo;Linux性能诊断和调优系列(六)&ndash;网络篇&raquo;\n&laquo;Linux性能诊断和调优系列(七)&ndash;虚拟机及容器篇&raquo;\n&laquo;Linux性能诊断和调优系列(八)&ndash;虚拟环境性能调优案例&raquo;\n&laquo;Linux性能诊断和调优系列(九)&ndash;计算密集型应用性能调优案例&raquo;\n&laquo;Linux性能诊断和调优系列(十)&ndash;存储密集型应用性能调优案例&raquo;\n&laquo;Linux性能诊断和调优系列(十一)&ndash;大内存型应用性能调优案例&raquo;\n本文内容为原创，如需转载，请务必注明原文出处。\n更多相关内容，欢迎访问我的个人网站：hongxu.wang。\n我们还提供免费的技术支持，欢迎通过公众号与我们联系。\n">
+<title>Linux性能诊断和调优系列(九)--计算密集型应用性能调优案例</title>
+
+
+<link rel="canonical" href="//localhost:1313/posts/linux-performance-diagnosis-and-tuning-series-9-cpu-bound-application-tuning-case/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap">
+
+
+<link rel="stylesheet" href="/scss/style.min.389e156f5e9bb13df5a924cfa99dfb9c39f3e01e68d9e146cd65bdae963be145.css"><meta property='og:title' content="Linux性能诊断和调优系列(九)--计算密集型应用性能调优案例">
+<meta property='og:description' content="Linux性能诊断和调优系列(九)&ndash;计算密集型应用性能调优案例\n目录 计算密集型常见的场景\n操作系统级CPU参数\n使用slice配置应用程序CPU资源\n将应用程序绑定在指定CPU上\n为应用程序指定CPU调度策略和优先级\n计算密集型常见的场景 数据仓库：进行ETL（提取、转换、加载）操作和数据聚合。\n大规模事务处理：处理大量并发事务的系统，如在线交易平台。\n实时分析：需要快速响应时间的实时数据处理和分析。\n财务建模和风险分析：进行复杂的金融算法和风险评估。\n科学计算和模拟，例如气候模型、物理模拟、分子动力学模拟等；\n高性能计算（HPC）、人工智能和深度学习等。\n所以对于计算密集型应用案例，我们重点关注CPU方面的调整。\n操作系统级CPU参数 对于计算密集型应用案例，常见的CPU方面的调整参数如下：\nenergy_performance_preference，这个参数用于设置系统整体的能耗与性能，建议使用performance，也就是最佳性能优先。\nenergy_perf_bias，这个参数用于设置CPU的能耗与性能，建议使用performance，也就是最佳性能优先。\ngovernor，这个参数用于设置CPU频率策略，建议使用performance，从而让CPU尽可能保持在最高频率。\nmin_perf_pct，这个参数用于设置CPU性能的最小百分比，100表示CPU始终以最大性能运行。\n使用slice配置应用程序CPU资源 如果在一个操作系统中，有多个应用程序，为了保证某个应用程序或限制某个应用程序，可以使用slice来配置应用程序可以使用的CPU资源。\n在slice文件中，常见设置如下：\nCPUQuota，这个参数用于设置可以使用的CPU资源百分比，例如40%。\nCPUAccounting，这个参数用于设置开启对CPU使用的监控。\n将应用程序绑定在指定CPU上 CPUAffinity，这个参数用于设置CPU的关联性，可以将应用程序绑定在指定CPU上，例如CPUAffinity=0，从而增加应用程序的性能。\n为应用程序指定CPU调度策略和优先级 CPUSchedulingPolicy，这个参数用于设置CPU调度策略，常用的有NORMAL，BATCH和IDLE。\nCPUScchedulingPriority，这个参数用于设置进程优先级，范围从 -20到+19，值越小优先级越高。\n更多内容请参见本系列其他文章 &laquo;Linux性能诊断和调优系列(一)&ndash;30秒3条命令诊断Linux性能瓶颈&raquo;\n&laquo;Linux性能诊断和调优系列(二)&ndash;CPU篇&raquo;\n&laquo;Linux性能诊断和调优系列(三)&ndash;内存篇&raquo;\n&laquo;Linux性能诊断和调优系列(四)&ndash;硬盘篇&raquo;\n&laquo;Linux性能诊断和调优系列(五)&ndash;文件系统篇&raquo;\n&laquo;Linux性能诊断和调优系列(六)&ndash;网络篇&raquo;\n&laquo;Linux性能诊断和调优系列(七)&ndash;虚拟机及容器篇&raquo;\n&laquo;Linux性能诊断和调优系列(八)&ndash;虚拟环境性能调优案例&raquo;\n&laquo;Linux性能诊断和调优系列(九)&ndash;计算密集型应用性能调优案例&raquo;\n&laquo;Linux性能诊断和调优系列(十)&ndash;存储密集型应用性能调优案例&raquo;\n&laquo;Linux性能诊断和调优系列(十一)&ndash;大内存型应用性能调优案例&raquo;\n本文内容为原创，如需转载，请务必注明原文出处。\n更多相关内容，欢迎访问我的个人网站：hongxu.wang。\n我们还提供免费的技术支持，欢迎通过公众号与我们联系。\n">
+<meta property='og:url' content='//localhost:1313/posts/linux-performance-diagnosis-and-tuning-series-9-cpu-bound-application-tuning-case/'>
+<meta property='og:site_name' content=''>
+<meta property='og:type' content='article'><meta property='article:section' content='Posts' /><meta property='article:tag' content='Linux' /><meta property='article:tag' content='Linux性能诊断和调优系列' /><meta property='article:tag' content='计算密集型应用性能调优案例' /><meta property='article:published_time' content='2024-06-20T19:31:55&#43;08:00'/><meta property='article:modified_time' content='2024-06-20T19:31:55&#43;08:00'/>
+<meta name="twitter:title" content="Linux性能诊断和调优系列(九)--计算密集型应用性能调优案例">
+<meta name="twitter:description" content="Linux性能诊断和调优系列(九)&ndash;计算密集型应用性能调优案例\n目录 计算密集型常见的场景\n操作系统级CPU参数\n使用slice配置应用程序CPU资源\n将应用程序绑定在指定CPU上\n为应用程序指定CPU调度策略和优先级\n计算密集型常见的场景 数据仓库：进行ETL（提取、转换、加载）操作和数据聚合。\n大规模事务处理：处理大量并发事务的系统，如在线交易平台。\n实时分析：需要快速响应时间的实时数据处理和分析。\n财务建模和风险分析：进行复杂的金融算法和风险评估。\n科学计算和模拟，例如气候模型、物理模拟、分子动力学模拟等；\n高性能计算（HPC）、人工智能和深度学习等。\n所以对于计算密集型应用案例，我们重点关注CPU方面的调整。\n操作系统级CPU参数 对于计算密集型应用案例，常见的CPU方面的调整参数如下：\nenergy_performance_preference，这个参数用于设置系统整体的能耗与性能，建议使用performance，也就是最佳性能优先。\nenergy_perf_bias，这个参数用于设置CPU的能耗与性能，建议使用performance，也就是最佳性能优先。\ngovernor，这个参数用于设置CPU频率策略，建议使用performance，从而让CPU尽可能保持在最高频率。\nmin_perf_pct，这个参数用于设置CPU性能的最小百分比，100表示CPU始终以最大性能运行。\n使用slice配置应用程序CPU资源 如果在一个操作系统中，有多个应用程序，为了保证某个应用程序或限制某个应用程序，可以使用slice来配置应用程序可以使用的CPU资源。\n在slice文件中，常见设置如下：\nCPUQuota，这个参数用于设置可以使用的CPU资源百分比，例如40%。\nCPUAccounting，这个参数用于设置开启对CPU使用的监控。\n将应用程序绑定在指定CPU上 CPUAffinity，这个参数用于设置CPU的关联性，可以将应用程序绑定在指定CPU上，例如CPUAffinity=0，从而增加应用程序的性能。\n为应用程序指定CPU调度策略和优先级 CPUSchedulingPolicy，这个参数用于设置CPU调度策略，常用的有NORMAL，BATCH和IDLE。\nCPUScchedulingPriority，这个参数用于设置进程优先级，范围从 -20到+19，值越小优先级越高。\n更多内容请参见本系列其他文章 &laquo;Linux性能诊断和调优系列(一)&ndash;30秒3条命令诊断Linux性能瓶颈&raquo;\n&laquo;Linux性能诊断和调优系列(二)&ndash;CPU篇&raquo;\n&laquo;Linux性能诊断和调优系列(三)&ndash;内存篇&raquo;\n&laquo;Linux性能诊断和调优系列(四)&ndash;硬盘篇&raquo;\n&laquo;Linux性能诊断和调优系列(五)&ndash;文件系统篇&raquo;\n&laquo;Linux性能诊断和调优系列(六)&ndash;网络篇&raquo;\n&laquo;Linux性能诊断和调优系列(七)&ndash;虚拟机及容器篇&raquo;\n&laquo;Linux性能诊断和调优系列(八)&ndash;虚拟环境性能调优案例&raquo;\n&laquo;Linux性能诊断和调优系列(九)&ndash;计算密集型应用性能调优案例&raquo;\n&laquo;Linux性能诊断和调优系列(十)&ndash;存储密集型应用性能调优案例&raquo;\n&laquo;Linux性能诊断和调优系列(十一)&ndash;大内存型应用性能调优案例&raquo;\n本文内容为原创，如需转载，请务必注明原文出处。\n更多相关内容，欢迎访问我的个人网站：hongxu.wang。\n我们还提供免费的技术支持，欢迎通过公众号与我们联系。\n">
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="Toggle Menu">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/"></a></h1>
+            <h2 class="site-description"></h2>
+        </div>
+    </header><ol class="menu" id="main-menu">
+        
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>Dark Mode</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            
+            
+            
+            <a href="/categories/%E6%8A%80%E6%9C%AF/" style="background-color: hsl(154, 60%, 84%); color: hsl(154, 60%, 15%);">
+                技术
+            </a>
+        
+            
+            
+            
+            <a href="/categories/linux/" style="background-color: hsl(237, 60%, 84%); color: hsl(237, 60%, 15%);">
+                Linux
+            </a>
+        
+            
+            
+            
+            <a href="/categories/linux%E6%80%A7%E8%83%BD%E8%AF%8A%E6%96%AD%E5%92%8C%E8%B0%83%E4%BC%98%E7%B3%BB%E5%88%97/" style="background-color: hsl(341, 60%, 84%); color: hsl(341, 60%, 15%);">
+                Linux性能诊断和调优系列
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/posts/linux-performance-diagnosis-and-tuning-series-9-cpu-bound-application-tuning-case/">Linux性能诊断和调优系列(九)--计算密集型应用性能调优案例</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    
+    
+    
+    <footer class="article-meta">
+        
+            <div class="inline-meta">
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                    <time class="article-time--published" datetime='2024-06-20T19:31:55&#43;08:00'>Thursday, June 20, 2024</time>
+                
+
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                    <time class="article-time--reading">
+                        1 minute read
+                    </time>
+                
+            </div>
+        
+
+        
+
+        
+    </footer>
+    
+</div>
+
+</header>
+
+    
+
+    <section class="article-content">
+    
+    
+    <p>Linux性能诊断和调优系列(九)&ndash;计算密集型应用性能调优案例<br>
+<img class="gallery-image" data-flex-basis="390px" data-flex-grow="162" height="439" loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px" src="/posts/linux-performance-diagnosis-and-tuning-series-9-cpu-bound-application-tuning-case/Linux_performance_09.png" width="715"></p>
+<h1 id="目录">目录
+</h1><p>计算密集型常见的场景<br>
+操作系统级CPU参数<br>
+使用slice配置应用程序CPU资源<br>
+将应用程序绑定在指定CPU上<br>
+为应用程序指定CPU调度策略和优先级</p>
+<h1 id="计算密集型常见的场景">计算密集型常见的场景
+</h1><p>数据仓库：进行ETL（提取、转换、加载）操作和数据聚合。<br>
+大规模事务处理：处理大量并发事务的系统，如在线交易平台。<br>
+实时分析：需要快速响应时间的实时数据处理和分析。<br>
+财务建模和风险分析：进行复杂的金融算法和风险评估。<br>
+科学计算和模拟，例如气候模型、物理模拟、分子动力学模拟等；<br>
+高性能计算（HPC）、人工智能和深度学习等。<br>
+所以对于计算密集型应用案例，我们重点关注CPU方面的调整。</p>
+<h1 id="操作系统级cpu参数">操作系统级CPU参数
+</h1><p>对于计算密集型应用案例，常见的CPU方面的调整参数如下：<br>
+energy_performance_preference，这个参数用于设置系统整体的能耗与性能，建议使用performance，也就是最佳性能优先。<br>
+energy_perf_bias，这个参数用于设置CPU的能耗与性能，建议使用performance，也就是最佳性能优先。<br>
+governor，这个参数用于设置CPU频率策略，建议使用performance，从而让CPU尽可能保持在最高频率。<br>
+min_perf_pct，这个参数用于设置CPU性能的最小百分比，100表示CPU始终以最大性能运行。</p>
+<h1 id="使用slice配置应用程序cpu资源">使用slice配置应用程序CPU资源
+</h1><p>如果在一个操作系统中，有多个应用程序，为了保证某个应用程序或限制某个应用程序，可以使用slice来配置应用程序可以使用的CPU资源。<br>
+在slice文件中，常见设置如下：<br>
+CPUQuota，这个参数用于设置可以使用的CPU资源百分比，例如40%。<br>
+CPUAccounting，这个参数用于设置开启对CPU使用的监控。</p>
+<h1 id="将应用程序绑定在指定cpu上">将应用程序绑定在指定CPU上
+</h1><p>CPUAffinity，这个参数用于设置CPU的关联性，可以将应用程序绑定在指定CPU上，例如CPUAffinity=0，从而增加应用程序的性能。</p>
+<h1 id="为应用程序指定cpu调度策略和优先级">为应用程序指定CPU调度策略和优先级
+</h1><p>CPUSchedulingPolicy，这个参数用于设置CPU调度策略，常用的有NORMAL，BATCH和IDLE。<br>
+CPUScchedulingPriority，这个参数用于设置进程优先级，范围从 -20到+19，值越小优先级越高。</p>
+<h1 id="更多内容请参见本系列其他文章">更多内容请参见本系列其他文章
+</h1><p>&laquo;Linux性能诊断和调优系列(一)&ndash;30秒3条命令诊断Linux性能瓶颈&raquo;<br>
+&laquo;Linux性能诊断和调优系列(二)&ndash;CPU篇&raquo;<br>
+&laquo;Linux性能诊断和调优系列(三)&ndash;内存篇&raquo;<br>
+&laquo;Linux性能诊断和调优系列(四)&ndash;硬盘篇&raquo;<br>
+&laquo;Linux性能诊断和调优系列(五)&ndash;文件系统篇&raquo;<br>
+&laquo;Linux性能诊断和调优系列(六)&ndash;网络篇&raquo;<br>
+&laquo;Linux性能诊断和调优系列(七)&ndash;虚拟机及容器篇&raquo;<br>
+&laquo;Linux性能诊断和调优系列(八)&ndash;虚拟环境性能调优案例&raquo;<br>
+&laquo;Linux性能诊断和调优系列(九)&ndash;计算密集型应用性能调优案例&raquo;<br>
+&laquo;Linux性能诊断和调优系列(十)&ndash;存储密集型应用性能调优案例&raquo;<br>
+&laquo;Linux性能诊断和调优系列(十一)&ndash;大内存型应用性能调优案例&raquo;</p>
+<p>本文内容为原创，如需转载，请务必注明原文出处。<br>
+更多相关内容，欢迎访问我的个人网站：hongxu.wang。<br>
+我们还提供免费的技术支持，欢迎通过公众号与我们联系。</p>
+
+</section>
+
+
+    <footer class="article-meta article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/linux/">Linux</a>
+        
+            <a href="/tags/linux%E6%80%A7%E8%83%BD%E8%AF%8A%E6%96%AD%E5%92%8C%E8%B0%83%E4%BC%98%E7%B3%BB%E5%88%97/">Linux性能诊断和调优系列</a>
+        
+            <a href="/tags/%E8%AE%A1%E7%AE%97%E5%AF%86%E9%9B%86%E5%9E%8B%E5%BA%94%E7%94%A8%E6%80%A7%E8%83%BD%E8%B0%83%E4%BC%98%E6%A1%88%E4%BE%8B/">计算密集型应用性能调优案例</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+<aside>
+    <h2 class="section-title">Related content</h2>
+    <div class="subsection-list">
+        <div class="article-list--tile">
+            
+                
+<article class="">
+    <a href="/posts/linux-performance-diagnosis-and-tuning-series-8-virtualization-performance-tuning-case/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux性能诊断和调优系列(八)--虚拟环境性能调优案例</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/linux-performance-diagnosis-and-tuning-series-7-vm-and-docker/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux性能诊断和调优系列(七)--虚拟机及容器篇</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/linux-performance-diagnosis-and-tuning-series-6-network/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux性能诊断和调优系列(六)--网络篇</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/linux-performance-diagnosis-and-tuning-series-5-filesystem/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux性能诊断和调优系列(五)--文件系统篇</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/linux-performance-diagnosis-and-tuning-series-4-disk/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux性能诊断和调优系列(四) -- 硬盘篇</h2>
+        </div>
+    </a>
+</article>
+            
+        </div>
+    </div>
+</aside>
+
+     
+    
+        
+        <div class="disqus-container">
+    
+</div>
+
+<style>
+    .disqus-container {
+        background-color: var(--card-background);
+        border-radius: var(--card-border-radius);
+        box-shadow: var(--shadow-l1);
+        padding: var(--card-padding);
+    }
+</style>
+
+<script>
+    window.addEventListener('onColorSchemeChange', (e) => {
+        if (typeof DISQUS == 'object') {
+            DISQUS.reset({
+                reload: true
+            });
+        }
+    })
+</script>
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+        2026 
+    </section>
+    
+    <section class="powerby">
+        Built with <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> <br />
+        Theme <b><a href="https://github.com/CaiJimmy/hugo-theme-stack" target="_blank" rel="noopener" data-version="4.0.0">Stack</a></b> designed by <a href="https://jimmycai.com" target="_blank" rel="noopener">Jimmy</a>
+    </section>
+</footer>
+
+
+    
+
+
+
+<script type="module">
+    import gallery from '\/ts\/gallery.js';
+
+    const articleContent = document.querySelector('.article-content');
+    const shouldLoad = articleContent && (articleContent.querySelectorAll('figure').length > 0 || articleContent.querySelectorAll('img.gallery-image').length > 0);
+    
+    if (shouldLoad) {
+        gallery(articleContent);
+
+        const PhotoSwipeLightbox = (await import("https:\/\/cdn.jsdelivr.net\/npm\/photoswipe@5.4.4\/dist\/photoswipe-lightbox.esm.min.js")).default;
+        const styleHref = "https:\/\/cdn.jsdelivr.net\/npm\/photoswipe@5.4.4\/dist\/photoswipe.css";
+
+        const styleTag = document.createElement('link');
+        styleTag.rel = 'stylesheet';
+        styleTag.href = styleHref;
+        document.head.appendChild(styleTag);
+
+        const lightbox = new PhotoSwipeLightbox({
+            gallerySelector: '.article-content',
+            childSelector: 'figure a.image-link',
+            pswpModule: () => import("https:\/\/cdn.jsdelivr.net\/npm\/photoswipe@5.4.4\/dist\/photoswipe.esm.min.js")
+        });
+        lightbox.init();
+    }
+</script>
+    
+
+            </main>
+        </div>
+        
+<script type="text/javascript" src="/ts/main.3ee067593935e3e391e923f2aa079d2b8173732410e5e89b88be5ea1545eeff7.js" defer></script>
+
+
+    </body>
+</html>

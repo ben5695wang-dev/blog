@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+    <head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="Linux性能诊断和调优系列(三) &ndash; 内存篇\n目录 如何查看内存使用率？\n内存的意义是什么？\n交换分区的大小设置多大好？\nTLB和Huge Page\nBypass和裸设备\n内存和交换分区都用光了会怎么样？\n进程的badness得分是干嘛的？\n如何让我的程序不被操作系统杀死？\n如何绑定内存？\n什么是内存超发？\n内存泄漏？\n总结和建议\n如何查看内存使用率？ free 命令输出中的available是当前可用内存容量\nvmstat查看内存和交换分区的使用情况\nps命令输出中的rss是一个进程当前实际使用的物理内存的容量。\npmap命令查看进程的内存映射详细信息\nperf命令查看进程缺页详细信息\n进程缺页火焰图\n">
+<title>Linux性能诊断和调优系列(三) -- 内存篇</title>
+
+
+<link rel="canonical" href="//localhost:1313/posts/linux-performance-diagnosis-and-tuning-series-3-memory/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap">
+
+
+<link rel="stylesheet" href="/scss/style.min.389e156f5e9bb13df5a924cfa99dfb9c39f3e01e68d9e146cd65bdae963be145.css"><meta property='og:title' content="Linux性能诊断和调优系列(三) -- 内存篇">
+<meta property='og:description' content="Linux性能诊断和调优系列(三) &ndash; 内存篇\n目录 如何查看内存使用率？\n内存的意义是什么？\n交换分区的大小设置多大好？\nTLB和Huge Page\nBypass和裸设备\n内存和交换分区都用光了会怎么样？\n进程的badness得分是干嘛的？\n如何让我的程序不被操作系统杀死？\n如何绑定内存？\n什么是内存超发？\n内存泄漏？\n总结和建议\n如何查看内存使用率？ free 命令输出中的available是当前可用内存容量\nvmstat查看内存和交换分区的使用情况\nps命令输出中的rss是一个进程当前实际使用的物理内存的容量。\npmap命令查看进程的内存映射详细信息\nperf命令查看进程缺页详细信息\n进程缺页火焰图\n">
+<meta property='og:url' content='//localhost:1313/posts/linux-performance-diagnosis-and-tuning-series-3-memory/'>
+<meta property='og:site_name' content=''>
+<meta property='og:type' content='article'><meta property='article:section' content='Posts' /><meta property='article:tag' content='Linux' /><meta property='article:tag' content='Linux性能诊断和调优系列' /><meta property='article:tag' content='memory' /><meta property='article:published_time' content='2024-06-11T18:38:59&#43;08:00'/><meta property='article:modified_time' content='2024-06-11T18:38:59&#43;08:00'/>
+<meta name="twitter:title" content="Linux性能诊断和调优系列(三) -- 内存篇">
+<meta name="twitter:description" content="Linux性能诊断和调优系列(三) &ndash; 内存篇\n目录 如何查看内存使用率？\n内存的意义是什么？\n交换分区的大小设置多大好？\nTLB和Huge Page\nBypass和裸设备\n内存和交换分区都用光了会怎么样？\n进程的badness得分是干嘛的？\n如何让我的程序不被操作系统杀死？\n如何绑定内存？\n什么是内存超发？\n内存泄漏？\n总结和建议\n如何查看内存使用率？ free 命令输出中的available是当前可用内存容量\nvmstat查看内存和交换分区的使用情况\nps命令输出中的rss是一个进程当前实际使用的物理内存的容量。\npmap命令查看进程的内存映射详细信息\nperf命令查看进程缺页详细信息\n进程缺页火焰图\n">
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="Toggle Menu">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/"></a></h1>
+            <h2 class="site-description"></h2>
+        </div>
+    </header><ol class="menu" id="main-menu">
+        
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>Dark Mode</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            
+            
+            
+            <a href="/categories/%E6%8A%80%E6%9C%AF/" style="background-color: hsl(154, 60%, 84%); color: hsl(154, 60%, 15%);">
+                技术
+            </a>
+        
+            
+            
+            
+            <a href="/categories/linux/" style="background-color: hsl(237, 60%, 84%); color: hsl(237, 60%, 15%);">
+                Linux
+            </a>
+        
+            
+            
+            
+            <a href="/categories/linux%E6%80%A7%E8%83%BD%E8%AF%8A%E6%96%AD%E5%92%8C%E8%B0%83%E4%BC%98%E7%B3%BB%E5%88%97/" style="background-color: hsl(341, 60%, 84%); color: hsl(341, 60%, 15%);">
+                Linux性能诊断和调优系列
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/posts/linux-performance-diagnosis-and-tuning-series-3-memory/">Linux性能诊断和调优系列(三) -- 内存篇</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    
+    
+    
+    <footer class="article-meta">
+        
+            <div class="inline-meta">
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                    <time class="article-time--published" datetime='2024-06-11T18:38:59&#43;08:00'>Tuesday, June 11, 2024</time>
+                
+
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                    <time class="article-time--reading">
+                        1 minute read
+                    </time>
+                
+            </div>
+        
+
+        
+
+        
+    </footer>
+    
+</div>
+
+</header>
+
+    
+
+    <section class="article-content">
+    
+    
+    <p>Linux性能诊断和调优系列(三) &ndash; 内存篇<br>
+<img class="gallery-image" data-flex-basis="165px" data-flex-grow="68" height="718" loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px" src="/posts/linux-performance-diagnosis-and-tuning-series-3-memory/20240605_mem.png" width="495"></p>
+<h1 id="目录">目录
+</h1><p>如何查看内存使用率？<br>
+内存的意义是什么？<br>
+交换分区的大小设置多大好？<br>
+TLB和Huge Page<br>
+Bypass和裸设备<br>
+内存和交换分区都用光了会怎么样？<br>
+进程的badness得分是干嘛的？<br>
+如何让我的程序不被操作系统杀死？<br>
+如何绑定内存？<br>
+什么是内存超发？<br>
+内存泄漏？<br>
+总结和建议</p>
+<h1 id="如何查看内存使用率">如何查看内存使用率？
+</h1><p>free 命令输出中的available是当前可用内存容量<br>
+<img class="gallery-image" data-flex-basis="1466px" data-flex-grow="610" height="110" loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px" src="/posts/linux-performance-diagnosis-and-tuning-series-3-memory/20240605_free.png" width="672"><br>
+vmstat查看内存和交换分区的使用情况<br>
+<img class="gallery-image" data-flex-basis="1268px" data-flex-grow="528" height="130" loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px" src="/posts/linux-performance-diagnosis-and-tuning-series-3-memory/vmstat.png" width="687"><br>
+ps命令输出中的rss是一个进程当前实际使用的物理内存的容量。<br>
+<img class="gallery-image" data-flex-basis="334px" data-flex-grow="139" height="511" loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px" src="/posts/linux-performance-diagnosis-and-tuning-series-3-memory/mem_ps_rss.png" width="713"><br>
+pmap命令查看进程的内存映射详细信息<br>
+<img loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px"><br>
+perf命令查看进程缺页详细信息<br>
+<img class="gallery-image" data-flex-basis="288px" data-flex-grow="120" height="662" loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px" src="/posts/linux-performance-diagnosis-and-tuning-series-3-memory/mem_perf.png" width="795"><br>
+进程缺页火焰图<br>
+<img class="gallery-image" data-flex-basis="1466px" data-flex-grow="610" height="110" loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px" src="/posts/linux-performance-diagnosis-and-tuning-series-3-memory/20240605_free.png" width="672"></p>
+<h1 id="如何限制内存使用量">如何限制内存使用量？
+</h1><p>可以通过cgroup来限制使用多少内存，例如memory.limit_in_bytes。<br>
+可以使用systemctl命令或编辑service的文件来限制内存使用量。<br>
+$ cat sshd.service<br>
+[Service]<br>
+MemoryLimit=1073741824</p>
+<h1 id="内存的意义是什么">内存的意义是什么？
+</h1><p>内存的意义就是尽量不去读硬盘！因为从内存读写数据和从硬盘读写数据，二者相差100倍。所以如果你的内存使用率接近100%，这说明不了什么。要看可用内存剩余多少，和交换分区的使用率。<br>
+可用内存是如果有需要，操作系统可以马上&quot;还给你&quot;的内存容量，也就是操作系统向你借了这些内存容量用于缓存一些数据达到计算机运行更快而已，反正这些内存你现在也用不着。<br>
+交换分区就真的是你内存用光了，所以只好把内存中一部分现在没有使用的数据，先放到交换分区(硬盘)上了！等用的时候，再从硬盘读回来。所以如果交换分区使用率过高(例如10%)，那会明显降低计算机性能，说明你需要扩充内存容量了！</p>
+<h1 id="交换分区的大小设置多大好">交换分区的大小设置多大好？
+</h1><p>总有人说我内存很大，要不要设置交换分区？建议你交换分区一定要设置，只不过是设置多大的问题。因为交换分区是你内存用光时，可以&quot;交换&quot;的地方，如果没有交换分区，你的内存又用光了，那只能是有进程被杀死(后面会讲到)或死机！<br>
+那交换分区设置多大？建议如下：<br>
+<img class="gallery-image" data-flex-basis="584px" data-flex-grow="243" height="135" loading="lazy" sizes="(max-width: 767px) calc(100vw - 30px), (max-width: 1023px) 700px, (max-width: 1279px) 950px, 1232px" src="/posts/linux-performance-diagnosis-and-tuning-series-3-memory/20240605_mem_recommand.png" width="329"><br>
+PS1：如果你有非机械硬盘(例如SSD)，一定要把交换分区设置到非机械硬盘上！<br>
+PS2：你自己使用的电脑也一样的道理，但是这里有一点要注意的是，如果你的电脑内存不小于64G，那建议你就不要打开电脑的休眠功能了，因为以现在的硬盘速度来讲，从休眠恢复的时间要比你开机的时间还要慢！</p>
+<h1 id="tlb和huge-page">TLB和Huge Page
+</h1><p>TLB(Translation Lookaside Buffer)是一个硬件，用于维护进程的内存到物理内存的映射(其实你不用管这个)。<br>
+Huge Page就是很大的页。Linux默认的内存页是4kB，这对于内存需求量很大程序来说，分配内存就要花很多时间！于是操作系统都支持更大的内存页来提供大内存的使用场景的性能。Linux支持2MB和1GB的大页，这样分配和使用起来就会快很多！但是要使用这样的大页，需要使用对应的系统调用(例如shmget)，但这是开发人员需要关心的事。<br>
+THP(Transparent Huge Page)是操作系统自己管理的大页，和普通的Huge Page不同，THP可以由操作系统自己搞定一切，这样就很省心是不？</p>
+<h1 id="bypass和裸设备">Bypass和裸设备
+</h1><p>有一些程序会绕过操作系统的的IO缓存机制，自己去管理其进程的缓存，所以叫Bypass，则这种访问磁盘就叫裸设备，最典型的例子是数据库。所以，在数据库场景中，建议你关闭THP，因为数据库根本不用它！对于数据库场景，建议调整vm.nr_hugepages来设置NUMA的huge page。</p>
+<h1 id="内存和交换分区都用光了会怎么样">内存和交换分区都用光了会怎么样？
+</h1><p>如果内存和交换分区都用光了，那么会杀进程，当然也可能会死机，具体看操作系统参数设置。<br>
+vm.panic_on_oom这个参数控制了在内存和交换分区都用光了的时候，是死机还是杀进程。当然还是杀进程的好，毕竟内存泄露嘛，你懂的。</p>
+<h1 id="进程的badness得分是干嘛的">进程的badness得分是干嘛的？
+</h1><p>进程的badness得分是用于在操作系统杀进程时选杀哪个的，得分越高，越可能被杀死。当然内核本身和1号进程是对此免疫。<br>
+/proc/PID/oom_score 是进程的badness得分。</p>
+<h1 id="如何让我的程序不被操作系统杀死">如何让我的程序不被操作系统杀死？
+</h1><p>/proc/PID/oom_score_adj，这个文件可以调整进程的oom_score 值，范围是 -1000到+1000，零是默认值，-1000代表免疫，OOM killer不会杀这个进程。</p>
+<h1 id="如何绑定内存">如何绑定内存？
+</h1><p>在上一篇我们说过NUMA，对于每颗CPU有“本地内存”和“远程内存”之分，访问本地内存的速度比访问其他CPU的“远程内存””要快。在Linux中，把系统分成node，每个node有自己的CPU和自己的本地内存。<br>
+使用numactl可以将程序绑定在特定node上，从而提升性能。<br>
+下面的命令是将程序myprogram的内存绑定在node2上，操作系统会尽可能的使用node2的内存。</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-shell" data-lang="shell"><span class="line"><span class="cl"><span class="c1"># numactl  --preferred=2 -- myprogram </span>
+</span></span></code></pre></div><h1 id="什么是内存超发">什么是内存超发？
+</h1><p>内存超发是指操作系统可以分配的内存容量超过了你物理内存与交换分区的总容量。这是因为程序通常会不使用分配它们的所有内存(和存储的瘦供给类似)，从而允许运行更大、更多的程序，从而提高系统的整体性能和资源利用率。<br>
+vm.overcommit_memory这个参数决定了内存超发的行为：<br>
+0：启发式算法。如果一个进程需要明显太多的内存，就拒绝；但会同意大量的小内存请求，从Linux6开始这个是默认值。<br>
+1: 永远超发内存，永远分配内存，不管还有多少剩余。<br>
+2: 严格控制内存超发，默认只超发交换分区的150%。</p>
+<h1 id="内存泄漏">内存泄漏？
+</h1><p>首先要分清内存泄露和内存增长。程序可能会使用大量内存，而这只是程序把数据从磁盘读到内存的正常行为。而分配过的内存没有释放，则是需要修复的bug。<br>
+内存泄漏的分析依赖于软件和编程语言。最简单的办法是查看内存的异常增长和内存分配器(如glibc,slab等)。常见的内存泄漏分析软件有：<br>
+Valgrind最常用的memcheck<br>
+Linux的SystemTap<br>
+当然少不了ebpf工具集，有memleak，mmapsnoop等。<br>
+还有bpftrace和perf一样万能</p>
+<h1 id="总结和建议">总结和建议
+</h1><ol>
+<li>free 命令输出中的available是当前可用内存容量</li>
+<li>vmstat命令输出中的si和so是交换分区的使用信息统计，如果不为零则代表正在使用交换分区。特别是si，如果一直高，那内存性能很不好！</li>
+<li>ps命令中的rss是程序的实际使用内存量。</li>
+<li>使用perf分析内存性能问题，重点关注major fault，它比minor要慢一个数据级。</li>
+<li>对于数据库应用，如果内存不均衡，可能会导致性能变差，所以建议使用所有node上的内存。</li>
+<li>对于容器和实例集群，可以考虑把OOM设置为直接panic，这样在内存用光时，会把应用自动分配到集群中资源更多的池中。</li>
+<li>vm.panic_on_oom这个参数控制了在内存和交换分区都用光了的时候，是死机还是杀进程。</li>
+<li>进程的badness得分是用于在操作系统杀进程时选杀哪个的，得分越高，越可能被杀死。可以修改这个值让程序不被杀。</li>
+</ol>
+<h1 id="更多内容请参见本系列其他文章">更多内容请参见本系列其他文章
+</h1><p>&laquo;Linux性能诊断和调优系列(一)&ndash;30秒3条命令诊断Linux性能瓶颈&raquo;<br>
+&laquo;Linux性能诊断和调优系列(二)&ndash;CPU篇&raquo;<br>
+&laquo;Linux性能诊断和调优系列(三)&ndash;内存篇&raquo;<br>
+&laquo;Linux性能诊断和调优系列(四)&ndash;硬盘篇&raquo;<br>
+&laquo;Linux性能诊断和调优系列(五)&ndash;文件系统篇&raquo;<br>
+&laquo;Linux性能诊断和调优系列(六)&ndash;网络篇&raquo;<br>
+&laquo;Linux性能诊断和调优系列(七)&ndash;虚拟机及容器篇&raquo;<br>
+&laquo;Linux性能诊断和调优系列(八)&ndash;虚拟环境性能调优案例&raquo;<br>
+&laquo;Linux性能诊断和调优系列(九)&ndash;计算密集型应用性能调优案例&raquo;<br>
+&laquo;Linux性能诊断和调优系列(十)&ndash;存储密集型应用性能调优案例&raquo;<br>
+&laquo;Linux性能诊断和调优系列(十一)&ndash;大内存型应用性能调优案例&raquo;</p>
+<p>本文内容为原创，如需转载，请务必注明原文出处。<br>
+更多相关内容，欢迎访问我的个人网站：hongxu.wang。<br>
+我们还提供免费的技术支持，欢迎通过公众号与我们联系。</p>
+
+</section>
+
+
+    <footer class="article-meta article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/linux/">Linux</a>
+        
+            <a href="/tags/linux%E6%80%A7%E8%83%BD%E8%AF%8A%E6%96%AD%E5%92%8C%E8%B0%83%E4%BC%98%E7%B3%BB%E5%88%97/">Linux性能诊断和调优系列</a>
+        
+            <a href="/tags/memory/">Memory</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+<aside>
+    <h2 class="section-title">Related content</h2>
+    <div class="subsection-list">
+        <div class="article-list--tile">
+            
+                
+<article class="">
+    <a href="/posts/linux-performance-diagnosis-and-tuning-series-2-cpu/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux性能诊断和调优系列(二) -- CPU篇</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/linux-performance-diagnosis-and-tuning-series-1-30-second-3-commands-to-diagnose-linux-performance-bottleneck/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux性能诊断和调优系列(一) -- 30秒3条命令诊断Linux性能瓶颈</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/setup-local-yum-repo-without-internet-in-lan/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">搭建不需要外网的局域网内yum源</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/setup-local-yum-repo-without-internet-in-lan-log/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">搭建不需要外网的局域网内yum源_log</h2>
+        </div>
+    </a>
+</article>
+            
+                
+<article class="">
+    <a href="/posts/linux-load-average/">
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Linux中的load average</h2>
+        </div>
+    </a>
+</article>
+            
+        </div>
+    </div>
+</aside>
+
+     
+    
+        
+        <div class="disqus-container">
+    
+</div>
+
+<style>
+    .disqus-container {
+        background-color: var(--card-background);
+        border-radius: var(--card-border-radius);
+        box-shadow: var(--shadow-l1);
+        padding: var(--card-padding);
+    }
+</style>
+
+<script>
+    window.addEventListener('onColorSchemeChange', (e) => {
+        if (typeof DISQUS == 'object') {
+            DISQUS.reset({
+                reload: true
+            });
+        }
+    })
+</script>
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+        2026 
+    </section>
+    
+    <section class="powerby">
+        Built with <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> <br />
+        Theme <b><a href="https://github.com/CaiJimmy/hugo-theme-stack" target="_blank" rel="noopener" data-version="4.0.0">Stack</a></b> designed by <a href="https://jimmycai.com" target="_blank" rel="noopener">Jimmy</a>
+    </section>
+</footer>
+
+
+    
+
+
+
+<script type="module">
+    import gallery from '\/ts\/gallery.js';
+
+    const articleContent = document.querySelector('.article-content');
+    const shouldLoad = articleContent && (articleContent.querySelectorAll('figure').length > 0 || articleContent.querySelectorAll('img.gallery-image').length > 0);
+    
+    if (shouldLoad) {
+        gallery(articleContent);
+
+        const PhotoSwipeLightbox = (await import("https:\/\/cdn.jsdelivr.net\/npm\/photoswipe@5.4.4\/dist\/photoswipe-lightbox.esm.min.js")).default;
+        const styleHref = "https:\/\/cdn.jsdelivr.net\/npm\/photoswipe@5.4.4\/dist\/photoswipe.css";
+
+        const styleTag = document.createElement('link');
+        styleTag.rel = 'stylesheet';
+        styleTag.href = styleHref;
+        document.head.appendChild(styleTag);
+
+        const lightbox = new PhotoSwipeLightbox({
+            gallerySelector: '.article-content',
+            childSelector: 'figure a.image-link',
+            pswpModule: () => import("https:\/\/cdn.jsdelivr.net\/npm\/photoswipe@5.4.4\/dist\/photoswipe.esm.min.js")
+        });
+        lightbox.init();
+    }
+</script>
+    
+
+            </main>
+        </div>
+        
+<script type="text/javascript" src="/ts/main.3ee067593935e3e391e923f2aa079d2b8173732410e5e89b88be5ea1545eeff7.js" defer></script>
+
+
+    </body>
+</html>

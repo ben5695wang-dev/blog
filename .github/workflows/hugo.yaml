@@ -14,7 +14,7 @@ permissions:
 
 concurrency:
   group: "pages"
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 defaults:
   run:
@@ -24,7 +24,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      HUGO_VERSION: 0.159.1      # 建议改成你本地 hugo version 显示的版本，或用 'latest'
+      HUGO_VERSION: latest      # 建议改成你本地 hugo version 显示的版本，或用 'latest'
     steps:
       - name: 检出代码
         uses: actions/checkout@v4
